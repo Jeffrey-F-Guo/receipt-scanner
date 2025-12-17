@@ -1,15 +1,12 @@
-import { ReactNode } from 'react'
-import Navbar from '../Navbar/Navbar'
 import './Layout.css'
 
 interface LayoutProps {
-    children: ReactNode
+    children: React.ReactNode
 }
 
 function Layout({ children }: LayoutProps) {
     return (
         <div className="layout">
-            <Navbar />
             <main className="main-content">
                 {children}
             </main>

@@ -1,0 +1,107 @@
+.file-upload-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 2rem;
+}
+
+.file-upload-container > p {
+    font-size: 1.125rem;
+    color: rgba(0, 0, 0, 0.87);
+    margin: 0;
+}
+
+.file-upload-box {
+    border: 3px dashed #0d5c63;
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    text-align: center;
+    width: 100%;
+    max-width: 500px;
+    background-color: rgba(13, 92, 99, 0.05);
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.file-upload-box:hover {
+    border-color: #0a7a85;
+    background-color: rgba(13, 92, 99, 0.1);
+    transform: translateY(-2px);
+}
+
+.file-upload-box.drag-over {
+    border-color: #0a7a85;
+    background-color: rgba(13, 92, 99, 0.15);
+    transform: scale(1.02);
+}
+
+.browse-btn {
+    padding: 0.75rem 2rem;
+    border: none;
+    border-radius: 8px;
+    background-color: #0d5c63;
+    color: white;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    display: inline-block;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.browse-btn:hover {
+    background-color: #0a7a85;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.browse-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+button {
+    padding: 0.75rem 2.5rem;
+    border: none;
+    border-radius: 8px;
+    background-color: #0d5c63;
+    color: white;
+    cursor: pointer;
+    font-size: 1.125rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+button:hover {
+    background-color: #0a7a85;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .file-upload-box {
+        width: 90%;
+        padding: 2rem 1rem;
+    }
+
+    .file-upload-container {
+        padding: 1rem;
+    }
+}

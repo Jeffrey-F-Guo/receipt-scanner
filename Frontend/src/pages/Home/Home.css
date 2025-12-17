@@ -1,0 +1,11 @@
+h1 {
+  color: #0d5c63;
+  font-size: xx-large;
+}
+
+.file-upload-container {
+    margin-top: 2rem;
+    padding: 1rem;
+    border-radius: 8px;
+    background-color: #f4f1de;
+}
