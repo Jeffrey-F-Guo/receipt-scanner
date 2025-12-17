@@ -1,17 +1,25 @@
 import './FileUpload.css'
 function FileUpload() {
+
+
     const handleDrop = (e: React.DragEvent) => {
-        // need state to keep track of uploaded files
-        console.log("YIPEEEEEEE")
+        e.preventDefault()
+        const droppedFiles = e.dataTransfer.files;
+        console.log("YIPEEEEEEE", droppedFiles)
     }
+
     return (
         <>
             <div className="file-upload-container">
                 <p>Please upload a receipt image!</p>
 
-                
+
                 {/* Make this a cool monster animation to 'eat' the receipts IM COOOKING */}
-                <div className="file-upload-box" onDrop={handleDrop}>
+                <div
+                    className="file-upload-box"
+                    onDrop={handleDrop}
+                    onDragOver={(e) => e.preventDefault()}
+                >
                     Drag and Drop
                     <input 
                         type="file" 
