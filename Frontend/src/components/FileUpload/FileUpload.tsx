@@ -4,6 +4,7 @@ import FileThumbnail from './FileThumbnail';
 import { useState, useEffect } from 'react';
 import heic2any from 'heic2any';
 
+import {PutObjectCommand, S3Client} from '@aws-sdk/client-s3'
 
 function FileUpload() {
     const NUM_DISPLAY_TILES = 8
@@ -45,7 +46,6 @@ function FileUpload() {
             // check if the file type is what the extension says it is
             // do later - this is security
             
-
             if (isHEIC) {
                 heicFiles.push(file)
 
@@ -126,10 +126,31 @@ function FileUpload() {
         return true;
     }
 
-    const submitFiles = () => {
+    const invokeLambda = async () => {
+
+    }
+
+    const submitFiles = async() => {
         // submit files to aws
         console.log("submitted!")
         // make a request to lambda function for s3 signed urls
+        // invokeLambda()
+        const s3Client = new S3Client({
+            region: "us-west-1",
+            credentials: {
+                accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID,
+                secretAccessKey: import.meta.env.VITE_AWS_SECRET_KEY
+            }
+
+           
+        });
+        await s3Client.send(
+            new PutObjectCommand({
+                Bucket: 'receipts-quarantine',
+                Key: "my-second-object.txt",
+                Body: "Do env vars work?",
+            }),
+        );
 
     }
 
