@@ -9,6 +9,7 @@ from botocore.config import Config
 import os
 from dotenv import load_dotenv
 import json
+import uuid
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -18,6 +19,12 @@ logger = logging.getLogger(__name__)
 def lambda_handler(event, context):
     # file data is received from the event
     bucket_name = os.getenv('BUCKET_NAME')
+    if not bucket_name:
+        logger.error('Missing bucket name')
+        return {
+            'statusCode': 400,
+            'body': 'Server is missing bucket name'
+        }
     s3_client = boto3.client(
         "s3",
         region_name='us-west-1',
@@ -29,35 +36,28 @@ def lambda_handler(event, context):
 
     presigned_urls = {}
     files = event['files']
-    # for file in files:
-    #     hash = gen_hash(file)
-    #     cached = check_cache(hash)
-    #     if not cached:
-    #         url = generate_s3_urls(file)
-    #         s3_urls.append(url)
-    #     else:
-    #         # retreive from dynamo
-    #         x=0
     valid_content_types = {'image/jpeg', 'image/png', 'application/pdf'}
     for file in files:
         file_type = file['contenttype'] 
         if file_type not in valid_content_types:
             return {
                 'statusCode': 400,
-                'body': json.dumps({'error': f'File {file['filename']} is not an image or pdf'})
+                'body': json.dumps({'error': f'File {file["name"]} is not an image or pdf'})
             }
         if file['size'] > 10485760: # 10MB
             return {
                 'statusCode': 400,
-                'body': json.dumps({'error': f'File {file['filename']} is over the 10MB limit'})
+                'body': json.dumps({'error': f'File {file["name"]} is over the 10MB limit'})
             }
         
-        s3_object_key = f"receipt_{file['uuid']}"
-        url = generate_presigned_put(s3_client, bucket_name, s3_object_key, file_type, 3600)
-        presigned_urls[file['uuid']] = url
+
+        new_uuid = str(uuid.uuid4())
+        s3_object_key = f"receipt_{new_uuid}"
+        url = generate_presigned_put(s3_client, bucket_name, s3_object_key, 3600)
+        presigned_urls[file['name']] = url
     return {
         'statusCode': 200,
-        'body': json.dumps({'urls': presigned_urls})
+        'body': json.dumps({'file_urls': presigned_urls})
     }
 
 
@@ -74,7 +74,7 @@ def check_cache(hash):
 
 
 
-def generate_presigned_put(s3_client, bucket, key, contenttype, expires_in):
+def generate_presigned_put(s3_client, bucket, key, expires_in):
     """
     Generate a presigned Amazon S3 URL that can be used to perform an action.
     
@@ -90,7 +90,6 @@ def generate_presigned_put(s3_client, bucket, key, contenttype, expires_in):
             Params={
                 'Bucket': bucket,
                 'Key': key,
-                'ContentType': contenttype
             }, 
             ExpiresIn=expires_in,
         )
@@ -118,6 +117,6 @@ def main():
         3600
     )
 
-
+    print(url)
 if __name__ == "__main__":
     main()
