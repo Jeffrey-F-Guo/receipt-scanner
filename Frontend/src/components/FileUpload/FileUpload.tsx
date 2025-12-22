@@ -10,8 +10,7 @@ function FileUpload() {
     const NUM_DISPLAY_TILES = 8
     const CONVERSIONSUFFIX = 'jpg'
     const [files, setFiles] = useState<File[]>([])
-    const [fileNames, setFileNames] = useState<Set<string>>(new Set())
-    const [previews, setPreviews] = useState<Map<string, string>>(new Map())
+    const [previews, setPreviews] = useState<Map<string, string>>(new Map()) // map file name to object url(image url)
 
     /*Testing and debugging, can delete later*/
     useEffect(() => {
@@ -38,7 +37,7 @@ function FileUpload() {
         for (const file of newFiles) {
             // Skip if file already exists
             const isHEIC: boolean = file.name.toLowerCase().endsWith('.heic')
-            if (fileNames.has(file.name) || (isHEIC && fileNames.has(file.name.replace(/\.heic$i/, CONVERSIONSUFFIX)))) {
+            if (previews.has(file.name) || (isHEIC && previews.has(file.name.replace(/\.heic$i/, CONVERSIONSUFFIX)))) {
                 console.log(`Skipping duplicate file: ${file.name}`)
                 continue
             }
@@ -59,11 +58,6 @@ function FileUpload() {
         // Add valid files to state
         if (validFiles.length > 0) {
             setFiles((curFiles) => [...validFiles, ...curFiles])
-            setFileNames((prev) => {
-                const newSet = new Set(prev)
-                validFiles.forEach(f => newSet.add(f.name))
-                return newSet
-            })
         }
 
         // Handle HEIC conversion
@@ -76,11 +70,6 @@ function FileUpload() {
 
             if (convertedFiles.length > 0) {
                 setFiles((curFiles) => [...convertedFiles, ...curFiles])
-                setFileNames((prev) => {
-                    const newSet = new Set(prev)
-                    convertedFiles.forEach(f => newSet.add(f.name))
-                    return newSet
-                })
             }
         }
     }
@@ -99,11 +88,6 @@ function FileUpload() {
 
         setFiles((prev) => prev.filter(f => f.name !== fileName));
 
-        setFileNames((prev) => {
-            const newSet = new Set(prev);
-            newSet.delete(fileName);
-            return newSet;
-        });
     }
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,32 +110,84 @@ function FileUpload() {
         return true;
     }
 
-    const invokeLambda = async () => {
+    interface fileData {
+        name: string;
+    }
+    interface PresignedUrlResponse {
+        file_urls: {
+            [filename: string] : string
+        }
+    }
 
+    const genPresignedUrls = async (): Promise<PresignedUrlResponse | undefined> => {
+        // send a request to the lambda function
+
+
+        let fileList: fileData[] = []
+        const files_copy = [...files]
+
+        for (const file of files_copy) {
+            const filename = file.name
+            fileList.push({name: filename})
+        }
+
+        const data = {
+            'files': fileList
+        }
+        const lambdaUrl = 'https://uppbw72ika.execute-api.us-west-1.amazonaws.com/dev'
+        try {
+            const response = await fetch(lambdaUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            if (!response.ok || response.status != 200) {
+                console.error('Failed to get presigned URL')
+                return undefined
+            }
+            const res = await response.json()
+            const body: PresignedUrlResponse = JSON.parse(res.body)
+            console.log('response is: ', body)
+            return body
+        } catch (error) {
+            console.log(error)
+            return undefined
+        }
     }
 
     const submitFiles = async() => {
         // submit files to aws
         console.log("submitted!")
+        if (files.length == 0) {
+            return 
+        }
         // make a request to lambda function for s3 signed urls
-        // invokeLambda()
-        const s3Client = new S3Client({
-            region: "us-west-1",
-            credentials: {
-                accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID,
-                secretAccessKey: import.meta.env.VITE_AWS_SECRET_KEY
+        const body:PresignedUrlResponse | undefined = await genPresignedUrls() // returns uuid->presigned_url map
+        console.log(body)
+        if (!body) {
+            console.error("Failed to get presigned URLs")
+            return
+        }
+
+       const urls = body.file_urls
+       
+        // PUT request for every url given
+        for (const file of files) {
+            const filename = file.name
+            const presignedUrl = urls[filename]
+            console.log(presignedUrl)
+            if (presignedUrl) {
+                await fetch(presignedUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type':file.type
+                    },
+                    body: file
+                })
             }
-
-           
-        });
-        await s3Client.send(
-            new PutObjectCommand({
-                Bucket: 'receipts-quarantine',
-                Key: "my-second-object.txt",
-                Body: "Do env vars work?",
-            }),
-        );
-
+        }
     }
 
     const renderThumbnails = () => {
