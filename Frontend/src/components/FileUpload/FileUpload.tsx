@@ -1,29 +1,49 @@
 import './FileUpload.css';
 import FileThumbnail from './FileThumbnail';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import heic2any from 'heic2any';
+interface UploadableFile {
+    name: string
+    previewUrl?: string
+    file: File
+    // status: 'uploading'|'converting'|'done'|'error'
+}
 
-import {PutObjectCommand, S3Client} from '@aws-sdk/client-s3'
+interface FileData {
+    name: string
+    type: string
+    size: number
+}
+type PresignedUrlResponse =
+    { file_urls: { [name: string]: string }}
+    | {error: string}
+
 
 function FileUpload() {
     const NUM_DISPLAY_TILES = 8
-    const CONVERSIONSUFFIX = 'jpg'
-    const [files, setFiles] = useState<File[]>([])
-    const [previews, setPreviews] = useState<Map<string, string>>(new Map()) // map file name to object url(image url)
+    const CONVERSION_SUFFIX = 'jpg'
 
-    /*Testing and debugging, can delete later*/
-    useEffect(() => {
-        console.log(files, previews)
-    }, [files, previews])
+    const [uploadedFiles, setUploadedFiles] = useState<UploadableFile[]>([])
+
+    // useEffect(() => {
+    //     return (
+    //         () => {
+    //             for (const [name, url] of previews) {
+    //                 URL.revokeObjectURL(url)
+    //             }
+    //         }
+    //     )
+    // }, [])
 
     const convertHEIC = async (heicFiles: File[]): Promise<File[]> => {
         const convertedFiles: File[] = []
-        console.log(heicFiles)
         for (const file of heicFiles) {
             const converted = await heic2any({blob: file})
             const convertedBlob = Array.isArray(converted)? converted[0] : converted
-            const newFile = new File([convertedBlob], file.name.replace(/\.heic$i/, CONVERSIONSUFFIX), {type: 'image/jpeg'})
+
+            const newFileName = file.name.replace(/\.heic$/i, CONVERSION_SUFFIX)
+            const newFile = new File([convertedBlob], newFileName, {type: 'image/jpeg'})
             convertedFiles.push(newFile)
         }
         return convertedFiles
@@ -32,61 +52,75 @@ function FileUpload() {
     const addFiles = async (fileList: FileList) => {
         const newFiles = Array.from(fileList)
         const heicFiles: File[] = []
-        const validFiles: File[] = []
+        const validFiles: UploadableFile[] = []
 
-        for (const file of newFiles) {
+        for (const newFile of newFiles) {
             // Skip if file already exists
-            const isHEIC: boolean = file.name.toLowerCase().endsWith('.heic')
-            if (previews.has(file.name) || (isHEIC && previews.has(file.name.replace(/\.heic$i/, CONVERSIONSUFFIX)))) {
-                console.log(`Skipping duplicate file: ${file.name}`)
-                continue
+            // make UploadedFile object
+            const isHEIC: boolean = newFile.name.toLowerCase().endsWith('.heic')
+            const newFileName = newFile.name
+
+            let isDuplicate = false
+            // check if new file has already been uploaded
+            for (const curFile of uploadedFiles) {
+                const curFileName = curFile.name
+                if (curFileName === newFile.name || (isHEIC && newFileName.replace(/\.heic$/i, CONVERSION_SUFFIX) === curFileName)) {
+                    console.log(`Skipping duplicate file: ${newFileName}`)
+                    isDuplicate = true
+                    break
+                }
             }
 
+            if (isDuplicate) {
+                continue // skip duplicate files
+            }
             // check if the file type is what the extension says it is
             // do later - this is security
             
             if (isHEIC) {
-                heicFiles.push(file)
+                heicFiles.push(newFile)
 
             } else {
-                validFiles.push(file)
-                const url = URL.createObjectURL(file)
-                setPreviews((prev) => new Map(prev).set(file.name, url))
+                const url = URL.createObjectURL(newFile)
+                validFiles.push({
+                    name: newFile.name, 
+                    previewUrl: url, 
+                    file: newFile
+                })
             }
         }
 
         // Add valid files to state
         if (validFiles.length > 0) {
-            setFiles((curFiles) => [...validFiles, ...curFiles])
+            setUploadedFiles((prevFiles) => [...validFiles, ...prevFiles])
         }
 
         // Handle HEIC conversion
         if (heicFiles.length > 0) {
+            let convertedUploadableFiles: UploadableFile[] = []
             const convertedFiles: File[] = await convertHEIC(heicFiles)
             for (const file of convertedFiles) {
-                const url = URL.createObjectURL(file)
-                setPreviews((prev) => new Map(prev).set(file.name, url))
+                const newFileObject = {
+                    name: file.name,
+                    previewUrl: URL.createObjectURL(file),
+                    file: file
+                }
+                convertedUploadableFiles.push(newFileObject)
             }
 
-            if (convertedFiles.length > 0) {
-                setFiles((curFiles) => [...convertedFiles, ...curFiles])
-            }
+            setUploadedFiles((prevFiles) => [...convertedUploadableFiles, ...prevFiles])
         }
     }
 
     const removeFile = (fileName: string) => {
-        const previewUrl = previews.get(fileName);
-        if (previewUrl) {
-            URL.revokeObjectURL(previewUrl);
+
+        for (const uploadedFile of uploadedFiles) {
+            if (uploadedFile.name === fileName && uploadedFile.previewUrl) {
+                URL.revokeObjectURL(uploadedFile.previewUrl)
+            }
         }
 
-        setPreviews((prev) => {
-            const newMap = new Map(prev);
-            newMap.delete(fileName);
-            return newMap;
-        });
-
-        setFiles((prev) => prev.filter(f => f.name !== fileName));
+        setUploadedFiles((prev) => prev.filter(f => f.name !== fileName));
 
     }
 
@@ -104,118 +138,118 @@ function FileUpload() {
         }
     }
 
-    // put this in later lol
-    const validateFile = (file: File): boolean => {
-        // accept file if a valid magic number appears within the first 1024 bytes
-        return true;
-    }
+    // // put this in later lol
+    // const validateFile = (file: File): boolean => {
+    //     // accept file if a valid magic number appears within the first 1024 bytes
+    //     return true;
+    // }
 
-    interface fileData {
-        name: string;
-    }
-    interface PresignedUrlResponse {
-        file_urls: {
-            [filename: string] : string
+
+    const generatePresignedUrls = async():Promise<PresignedUrlResponse | undefined> => {
+        // calls the lambda function
+
+        // Construct request body
+        let fileList = []
+        for (const fileObject of uploadedFiles) {
+            const file = fileObject.file
+            const uploadData: FileData = {
+                name: file.name,
+                type: file.type,
+                size: file.size
+            }
+            fileList.push(uploadData)
         }
-    }
-
-    const genPresignedUrls = async (): Promise<PresignedUrlResponse | undefined> => {
-        // send a request to the lambda function
-
-
-        let fileList: fileData[] = []
-        const files_copy = [...files]
-
-        for (const file of files_copy) {
-            const filename = file.name
-            fileList.push({name: filename})
-        }
-
-        const data = {
+        const requestPayload = {
             'files': fileList
         }
-        const lambdaUrl = 'https://uppbw72ika.execute-api.us-west-1.amazonaws.com/dev'
+
         try {
-            const response = await fetch(lambdaUrl, {
+            // Request presigned urls from lambda function
+            const lambdaUrl = import.meta.env.VITE_LAMBDA_URL
+            const response = await fetch (lambdaUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(data)
+                body: JSON.stringify(requestPayload)
             })
-            if (!response.ok || response.status != 200) {
-                console.error('Failed to get presigned URL')
+
+            if (!response.ok) {
                 return undefined
             }
-            const res = await response.json()
-            const body: PresignedUrlResponse = JSON.parse(res.body)
-            console.log('response is: ', body)
-            return body
-        } catch (error) {
-            console.log(error)
+
+            const responseJson = await response.json()
+            console.log(responseJson)
+            const parsedBody = JSON.parse(responseJson.body)
+
+            return parsedBody
+        } catch (error){
+            console.error(error)
             return undefined
         }
     }
+    const submitFiles = async () => {
+        if (uploadedFiles.length === 0) return;
 
-    const submitFiles = async() => {
-        // submit files to aws
-        console.log("submitted!")
-        if (files.length == 0) {
-            return 
-        }
-        // make a request to lambda function for s3 signed urls
-        const body:PresignedUrlResponse | undefined = await genPresignedUrls() // returns uuid->presigned_url map
-        console.log(body)
-        if (!body) {
-            console.error("Failed to get presigned URLs")
+        const body: PresignedUrlResponse|undefined = await generatePresignedUrls()
+        if (body === undefined) {
+            console.error('Failed to generate presigned URLs')
+            return
+        }   
+        if ('error' in body) {
+            console.error(body.error)
             return
         }
 
-       const urls = body.file_urls
-       
-        // PUT request for every url given
-        for (const file of files) {
-            const filename = file.name
-            const presignedUrl = urls[filename]
-            console.log(presignedUrl)
-            if (presignedUrl) {
-                await fetch(presignedUrl, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type':file.type
-                    },
-                    body: file
-                })
-            }
+        const file_urls = body.file_urls
+        const uploadPromises = uploadedFiles.map(async (fileObj) => {
+            const presignedUrl = file_urls[fileObj.name]
+            if (!presignedUrl) return;
+
+            return fetch(presignedUrl, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': fileObj.file.type
+                },
+                body: fileObj.file
+            })
+        })
+
+        try {
+            await Promise.all(uploadPromises);
+        } catch (err) {
+            console.error('One or more uploads failed', err);
         }
+
+        setUploadedFiles([])
     }
 
     const renderThumbnails = () => {
-        if (files.length > NUM_DISPLAY_TILES) {
-            const displayTiles = files.slice(0, NUM_DISPLAY_TILES - 1);
+        if (uploadedFiles.length > NUM_DISPLAY_TILES) {
+            const displayTiles = uploadedFiles.slice(0, NUM_DISPLAY_TILES - 1);
             return (
                 <>
-                    {displayTiles.map((file) => (
+                    {displayTiles.map((fileObject) => (
                         <FileThumbnail
-                            key={file.name}
-                            file={file}
-                            previewUrl={previews.get(file.name) ?? null}
-                            onRemove={() => removeFile(file.name)}
+                            key={fileObject.name}
+                            file={fileObject.file}
+                            previewUrl={fileObject.previewUrl??null}
+                            onRemove={() => removeFile(fileObject.name)}
                         />
                     ))}
                     <div className="thumbnail-ellipsis">
                         <span>...</span>
-                        <p>{files.length - (NUM_DISPLAY_TILES - 1)} more</p>
+                        <p>{uploadedFiles.length - (NUM_DISPLAY_TILES - 1)} more</p>
                     </div>
                 </>
             );
         } else {
-            return files.map((file) => (
+            return uploadedFiles.map((fileObject) => (
                 <FileThumbnail
-                    key={file.name}
-                    file={file}
-                    previewUrl={previews.get(file.name) ?? null}
-                    onRemove={() => removeFile(file.name)}
+                    key={fileObject.name}
+                    file={fileObject.file}
+                    previewUrl={fileObject.previewUrl??null}
+                    onRemove={() => removeFile(fileObject.name)}
                 />
             ));
         }
@@ -230,12 +264,12 @@ function FileUpload() {
                 onDrop={handleDrop}
                 onDragOver={(e) => e.preventDefault()}
             >
-                {files.length > 0 && (
+                {uploadedFiles.length > 0 && (
                     <div className='thumbnails-grid'>
                         {renderThumbnails()}
                     </div>
                 )}
-                {files.length === 0 && (
+                {uploadedFiles.length === 0 && (
                     <div>
                         <p>Drop your receipts here</p>
                     </div>
