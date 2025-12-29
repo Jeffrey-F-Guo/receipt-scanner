@@ -1,6 +1,5 @@
 import heic2any from "heic2any";
 import {useState, useEffect} from 'react'
-import wolf3Image from '../../assets/wolf3.jpg'
 import testImage from '../../assets/test.heic?url'
 
 function renderHEICConvert () {

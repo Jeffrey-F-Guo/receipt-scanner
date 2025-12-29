@@ -1,7 +1,7 @@
 import './FileUpload.css';
 import FileThumbnail from './FileThumbnail';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import heic2any from 'heic2any';
 interface UploadableFile {
     name: string
