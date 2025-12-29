@@ -20,12 +20,16 @@ import json
 import logging
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, ValidationError
+from botocore.config import Config
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+UPLOAD_DIR_NAME = 'uploads/'
+FINISHED_DIR_NAME = 'finished/'
+
 # Initialize clients outside handler for reuse across invocations
-s3_client = boto3.client('s3')
+s3_client = boto3.client('s3', config=Config(signature_version="s3v4"))
 textract_client = boto3.client('textract')
 
 class ReceiptItem(BaseModel):
@@ -70,13 +74,22 @@ def lambda_handler(event, context):
         bucket = record['s3']['bucket']['name']
         key = record['s3']['object']['key']
 
+        output_body = {}
+
+        if not key.startswith(UPLOAD_DIR_NAME):
+            logger.error(f"Invalid s3 key: {key}. Object must be from the {UPLOAD_DIR_NAME} directory.")
+            output_body =  {
+                'statusCode': 400,
+                'body': {'error': 'Invalid S3 object key'}
+            }   
+
         logger.info(f"Processing S3 object: s3://{bucket}/{key}")
 
     except (KeyError, IndexError) as e:
         logger.error(f"Invalid S3 event structure: {e}")
-        return {
+        output_body =  {
             'statusCode': 400,
-            'body': json.dumps({'error': 'Invalid S3 event'})
+            'body': {'error': 'Invalid S3 event'}
         }
 
     # Process receipt with Textract
@@ -93,35 +106,57 @@ def lambda_handler(event, context):
         )
 
         logger.info("Textract analysis complete, parsing results...")
-
-        # Parse Textract response
         parsed_receipts = parse_extracted_text(response)
 
-        logger.info(f"Successfully parsed {len(parsed_receipts)} receipt(s)")
+        if not parsed_receipts:
+            # Valid execution, but useless result
+            output_body = {
+                'statusCode': 422,
+                'error': {'message': 'No receipt data found in image.'}
+            }
+        else:
+            # Success
+            output_body = {
+                'statusCode': 200,
+                'data': parsed_receipts
+            }
+            logger.info(f"Successfully parsed {len(parsed_receipts)} receipt(s)")
 
-        return {
-            'statusCode': 200,
-            'body': json.dumps({
-                'message': 'Receipt processed successfully',
-                'receipts': parsed_receipts
-            })
-        }
+        # save to s3 'finished' folder
+        new_key = key.replace(UPLOAD_DIR_NAME, FINISHED_DIR_NAME).rsplit('.', 1)[0] + '.json'
 
     except InvalidTextractResponse as e:
         logger.error(f"Invalid Textract response: {e}")
-
-        return {
+        output_body =  {
             'statusCode': 400,
-            'body': json.dumps({'error': str(e)})
+            'body': {'error': f"Invalid Textract response: {e}"}
         }
 
     except Exception as e:
         logger.error(f"Error processing receipt: {e}", exc_info=True)
+        output_body = {
+            'statusCode': 500,
+            'body': {'error': 'Internal processing error.'}
+        }
+    
+    # Always write to s3 to notify frontend of request status
+    try:
+        s3_client.put_object(
+            Bucket = bucket,
+            Key = new_key,
+            ContentType = 'application/json',
+            Body = json.dumps(output_body)
+        )
+    except Exception as e:
+        logger.error(f'Failed to write to S3: {e}')
         return {
             'statusCode': 500,
-            'body': json.dumps({'error': 'Failed to process receipt'})
+            'body': 'Failed to write to s3'
         }
-
+    return {
+            'statusCode': 200,
+            'body': f"Saved result to s3://{bucket}/{new_key}"
+        }
 
 # ===========================
 # TEXTRACT PARSING FUNCTIONS

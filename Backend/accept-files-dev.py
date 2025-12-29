@@ -123,17 +123,20 @@ def generate_presigned_put_url(s3_client, bucket: str, object_key: str, content_
 
 
 
-
-
-
-
 def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
     if 'files' not in event:
         return {
             'statusCode': 400,
             'body': json.dumps({'error': 'Missing files array'})
         }
-
+    
+    bucket = os.getenv('BUCKET_NAME')
+    if not bucket:
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': 'BUCKET_NAME not configured'})
+        }
+    
     files = event['files']
     s3_client = get_s3_client()
 
@@ -175,13 +178,6 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
             return {
                 'statusCode': 400,
                 'body': json.dumps({'error': 'Could not create object key'})
-            }
-
-        bucket = os.getenv('BUCKET_NAME')
-        if not bucket:
-            return {
-                'statusCode': 500,
-                'body': json.dumps({'error': 'BUCKET_NAME not configured'})
             }
 
         url = generate_presigned_put_url(
