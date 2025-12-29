@@ -26,7 +26,7 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({ receipts, extractedData
     return null;
   }
 
-  const receiptTabsData = receipts.map((receipt, index) => ({
+  const receiptTabsData = receipts.map((receipt) => ({
     id: receipt.id,
     name: receipt.file.name,
   }));
