@@ -31,6 +31,7 @@ class FileObj:
 # S3 client Handling
 # ==================
 _s3_client: Optional[Any] = None
+_gateway_client: Optional[Any] = None
 
 # Singleton pattern!
 def get_s3_client():
@@ -50,7 +51,14 @@ def get_s3_client():
         
     return _s3_client
 
-
+def get_gateway_client():
+    global _gateway_client
+    if not _gateway_client:
+        _gateway_client = boto3.client(
+            'apigatewaymanagementapi', 
+            endpoint_url='https://apbvj306i8.execute-api.us-west-1.amazonaws.com/dev/'
+        )
+    return _gateway_client
 # ==================
 # Validation
 # ==================
@@ -105,13 +113,14 @@ def create_object_key(filename: str) -> str:
     return object_key
 
 
-def generate_presigned_put_url(s3_client, bucket: str, object_key: str, content_type: str, expires_in: int) -> Optional[str]:
+def generate_presigned_put_url(s3_client, bucket: str, object_key: str, connectionId:str, content_type: str, expires_in: int) -> Optional[str]:
     try:
         url = s3_client.generate_presigned_url(
             ClientMethod='put_object',
             Params={
                 'Bucket': bucket,
                 'Key': object_key,
+                'Metadata': {'connectionId': connectionId},
                 'ContentType': content_type,
             },
             ExpiresIn=expires_in
@@ -124,12 +133,7 @@ def generate_presigned_put_url(s3_client, bucket: str, object_key: str, content_
 
 
 def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
-    if 'files' not in event:
-        return {
-            'statusCode': 400,
-            'body': json.dumps({'error': 'Missing files array'})
-        }
-    
+    logger.info(f'Event: {event}')
     bucket = os.getenv('BUCKET_NAME')
     if not bucket:
         return {
@@ -137,13 +141,28 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
             'body': json.dumps({'error': 'BUCKET_NAME not configured'})
         }
     
-    files = event['files']
-    s3_client = get_s3_client()
 
+    body = json.loads(event['body'])
+    if 'files' not in body:
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'error': 'Missing files array'})
+        }
+    
+    files = body['files']
+    connectionId = event['requestContext']['connectionId']
+
+    s3_client = get_s3_client()
+    gateway_client = get_gateway_client()
     if not s3_client:
         return {
             'statusCode': 500,
             'body': json.dumps({'error': 'Failed to initialize S3 client'})
+        }
+    if not gateway_client:
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': 'Failed to initialize gateway client'})
         }
 
     presigned_urls: Dict[str, str] = {}
@@ -184,20 +203,19 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
             s3_client=s3_client, 
             bucket=bucket, 
             object_key=object_key, 
+            connectionId=connectionId,
             content_type=filetype,
             expires_in=3600
         )
 
         if url:
             presigned_urls[filename] = url
+        
+    gateway_client.post_to_connection(
+        ConnectionId = connectionId,
+        Data = json.dumps({'file_urls': presigned_urls})
+    )
 
     return {
-        'statusCode': 200,
-        'body': json.dumps({'file_urls': presigned_urls}),
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type'
-        }
+        'statusCode': 200
     }
