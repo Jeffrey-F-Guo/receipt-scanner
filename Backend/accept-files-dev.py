@@ -178,6 +178,7 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         filetype = file_data['type']
         filesize = file_data['size']
 
+        logger.info(f'filename: {filename}, filetype: {filetype}, filesize: {filesize}')
         file_obj = FileObj(
             filename=filename,
             filetype=filetype,
@@ -211,11 +212,22 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         if url:
             presigned_urls[filename] = url
         
-    gateway_client.post_to_connection(
-        ConnectionId = connectionId,
-        Data = json.dumps({'file_urls': presigned_urls})
-    )
+    # gateway_client.post_to_connection(
+    #     ConnectionId = connectionId,
+    #     Data = json.dumps(
+    #         {
+    #             'file_urls': presigned_urls,
+    #             'type': 'presignedUrls'
+    #         }
+    #     )
+    # )
 
     return {
-        'statusCode': 200
+        'statusCode': 200,
+        'body': json.dumps(
+            {
+                'file_urls': presigned_urls,
+                'type': 'presignedUrls'
+            }
+        )
     }
