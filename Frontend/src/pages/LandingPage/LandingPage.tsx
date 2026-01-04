@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from '../../components/Header/Header';
 import Hero, { type Receipt } from '../../components/Hero/Hero';
 import Features from '../../components/Features/Features';
@@ -16,6 +16,7 @@ type PresignedUrlResponse =
   | { file_urls: { [name: string]: string } }
   | { error: string };
 
+
 const LandingPage: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
@@ -23,7 +24,43 @@ const LandingPage: React.FC = () => {
   const [extractedData, setExtractedData] = useState<ExtractedData[]>([]);
   const [showResults, setShowResults] = useState(false);
 
+  const socketRef = useRef<WebSocket>(null)
+  const receiptsRef = useRef<Receipt[]>([])
+
+  useEffect(() => {
+    receiptsRef.current = receipts
+  }, [receipts])
+
+  useEffect(() => {
+    const WSS_URL = 'wss://bdoyue9pj6.execute-api.us-west-1.amazonaws.com/dev/'
+    socketRef.current = new WebSocket(WSS_URL)
+
+    socketRef.current.onopen = () => {
+      console.log("WebSocket Connected");
+    };
+
+
+    socketRef.current.onmessage = async (event) => {
+      console.log(event)
+      const data = JSON.parse(event.data);
+
+      // check event action
+      
+      if (data.type === 'presignedUrls') {
+        await uploadToS3(data.file_urls, data.connectionId)
+      }
+
+    } 
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.close()
+      }
+    }
+  }, [])
+
   const generatePresignedUrls = async (): Promise<PresignedUrlResponse | undefined> => {
+
+
     // Construct request body
     const fileList: FileData[] = receipts.map(receipt => ({
       name: receipt.file.name,
@@ -32,52 +69,43 @@ const LandingPage: React.FC = () => {
     }));
 
     const requestPayload = {
+      action: 'getPresignedUrl',
       files: fileList,
     };
 
     try {
-      // Request presigned urls from lambda function
-      const lambdaUrl = import.meta.env.VITE_LAMBDA_URL;
-      const response = await fetch(lambdaUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestPayload),
-      });
-
-      if (!response.ok) {
-        return undefined;
+      // verify socket open
+      if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+        console.error("Socket is not connected.");
+        return;
       }
+      socketRef.current.send(JSON.stringify(requestPayload))
+      console.log("Sent request")
 
-      const responseJson = await response.json();
-      console.log('Lambda response:', responseJson);
-      const parsedBody = JSON.parse(responseJson.body);
 
-      return parsedBody;
     } catch (error) {
-      console.error('Error generating presigned URLs:', error);
+        console.error('Error generating presigned URLs:', error);
       return undefined;
     }
   };
 
-  const uploadToS3 = async (presignedUrls: { [name: string]: string }) => {
-    const uploadPromises = receipts.map(async (receipt) => {
+  const uploadToS3 = async (presignedUrls: { [name: string]: string }, connectionId: string) => {
+    const currentReceipts = receiptsRef.current
+    const uploadPromises = currentReceipts.map(async (receipt) => {
       const presignedUrl = presignedUrls[receipt.file.name];
       if (!presignedUrl) {
         console.error(`No presigned URL for ${receipt.file.name}`);
         return;
       }
-
       try {
         const response = await fetch(presignedUrl, {
           method: 'PUT',
           headers: {
             'Content-Type': receipt.file.type,
+            "x-amz-meta-connectionId": connectionId,
           },
           body: receipt.file,
         });
-
         if (!response.ok) {
           throw new Error(`Upload failed for ${receipt.file.name}`);
         }
@@ -92,6 +120,7 @@ const LandingPage: React.FC = () => {
     await Promise.all(uploadPromises);
   };
 
+  // TODO: delete this after integrating real data
   const generateMockData = (): ExtractedData[] => {
     // Generate mock extracted data for each receipt
     return receipts.map((receipt, index) => ({
@@ -127,23 +156,19 @@ const LandingPage: React.FC = () => {
 
     try {
       // Step 1: Generate presigned URLs
-      const response = await generatePresignedUrls();
+      generatePresignedUrls();
 
-      if (!response) {
-        console.error('Failed to generate presigned URLs');
-        setIsUploading(false);
-        return;
-      }
+      // if (!response) {
+      //   console.error('Failed to generate presigned URLs');
+      //   setIsUploading(false);
+      //   return;
+      // }
 
-      if ('error' in response) {
-        console.error('Error from Lambda:', response.error);
-        setIsUploading(false);
-        return;
-      }
-
-      // Step 2: Upload to S3
-      await uploadToS3(response.file_urls);
-      setCurrentStep(2); // Move to "View Table"
+      // if ('error' in response) {
+      //   console.error('Error from Lambda:', response.error);
+      //   setIsUploading(false);
+      //   return;
+      // }
 
       // Step 3: Generate mock data and show results
       setTimeout(() => {
@@ -164,8 +189,8 @@ const LandingPage: React.FC = () => {
     setShowResults(false);
     setCurrentStep(0);
     // Optionally clear receipts and data
-    // setReceipts([]);
-    // setExtractedData([]);
+    setReceipts([]);
+    setExtractedData([]);
   };
 
   return (
@@ -182,7 +207,6 @@ const LandingPage: React.FC = () => {
             isUploading={isUploading}
           />
           <Features currentStep={currentStep} />
-          <Footer />
         </>
       ) : (
         <>
@@ -192,9 +216,9 @@ const LandingPage: React.FC = () => {
             extractedData={extractedData}
             onBackToUpload={handleBackToUpload}
           />
-          <Footer />
         </>
       )}
+      <Footer/>
     </div>
   );
 };
