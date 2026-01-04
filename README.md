@@ -1,2 +1,1 @@
-Lamp = L ramp
-Receipt Capture tool so I can be lazy
+System architecture here
