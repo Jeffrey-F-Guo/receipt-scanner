@@ -56,7 +56,7 @@ def get_gateway_client():
     if not _gateway_client:
         _gateway_client = boto3.client(
             'apigatewaymanagementapi', 
-            endpoint_url='https://apbvj306i8.execute-api.us-west-1.amazonaws.com/dev/'
+            endpoint_url='https://bdoyue9pj6.execute-api.us-west-1.amazonaws.com/dev/'
         )
     return _gateway_client
 # ==================
@@ -212,22 +212,17 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         if url:
             presigned_urls[filename] = url
         
-    # gateway_client.post_to_connection(
-    #     ConnectionId = connectionId,
-    #     Data = json.dumps(
-    #         {
-    #             'file_urls': presigned_urls,
-    #             'type': 'presignedUrls'
-    #         }
-    #     )
-    # )
+    gateway_client.post_to_connection(
+        ConnectionId = connectionId,
+        Data = json.dumps(
+            {
+                'file_urls': presigned_urls,
+                'type': 'presignedUrls',
+                'connectionId': connectionId
+            }
+        )
+    )
 
     return {
         'statusCode': 200,
-        'body': json.dumps(
-            {
-                'file_urls': presigned_urls,
-                'type': 'presignedUrls'
-            }
-        )
     }
