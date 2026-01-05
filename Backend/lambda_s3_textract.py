@@ -28,10 +28,15 @@ logger.setLevel(logging.INFO)
 UPLOAD_DIR_NAME = 'uploads/'
 FINISHED_DIR_NAME = 'finished/'
 
-# Initialize clients outside handler for reuse across invocations
+# AWS client init
 s3_client = boto3.client('s3', config=Config(signature_version="s3v4"))
+gateway_client = boto3.client(
+    'apigatewaymanagementapi', 
+    endpoint_url='https://bdoyue9pj6.execute-api.us-west-1.amazonaws.com/dev/'
+)
 textract_client = boto3.client('textract')
 
+# Data classes
 class ReceiptItem(BaseModel):
     item_name: str
     price: str
@@ -44,6 +49,7 @@ class Receipt(BaseModel):
     total: str
 
 
+# AWS textract exception
 class InvalidTextractResponse(Exception):
     """Exception raised for invalid AWS Textract response format."""
     def __init__(self, missing_field: str,
@@ -68,7 +74,7 @@ def lambda_handler(event, context):
         Response with statusCode and body
     """
 
-    # Extract S3 event information
+    # Extract S3 information from event
     try:
         record = event['Records'][0]
         bucket = record['s3']['bucket']['name']
@@ -83,6 +89,12 @@ def lambda_handler(event, context):
                 'body': {'error': 'Invalid S3 object key'}
             }   
 
+        # Check S3 object for valid metadata
+        response = s3_client.head_object(Key=key, Bucket=bucket)
+        logger.info(f"Head object response: {response}")
+        metadata = response['Metadata']
+        connection_id = metadata['connectionid']
+        
         logger.info(f"Processing S3 object: s3://{bucket}/{key}")
 
     except (KeyError, IndexError) as e:
@@ -91,6 +103,9 @@ def lambda_handler(event, context):
             'statusCode': 400,
             'body': {'error': 'Invalid S3 event'}
         }
+
+
+
 
     # Process receipt with Textract
     try:
@@ -139,23 +154,27 @@ def lambda_handler(event, context):
             'body': {'error': 'Internal processing error.'}
         }
     
-    # Always write to s3 to notify frontend of request status
+
+    # Always write to websocket to notify frontend of request status
     try:
-        s3_client.put_object(
-            Bucket = bucket,
-            Key = new_key,
-            ContentType = 'application/json',
-            Body = json.dumps(output_body)
+        gateway_client.post_to_connection(
+            ConnectionId=connection_id,
+            Data=json.dumps(
+                {
+                    'body': output_body,
+                    'type': 'extractText'
+                }
+            ) 
         )
+
     except Exception as e:
-        logger.error(f'Failed to write to S3: {e}')
+        logger.error(f'Failed to write to socket: {e}')
         return {
             'statusCode': 500,
-            'body': 'Failed to write to s3'
         }
+    
     return {
             'statusCode': 200,
-            'body': f"Saved result to s3://{bucket}/{new_key}"
         }
 
 # ===========================

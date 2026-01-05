@@ -40,14 +40,26 @@ const LandingPage: React.FC = () => {
     };
 
 
-    socketRef.current.onmessage = async (event) => {
-      console.log(event)
-      const data = JSON.parse(event.data);
+    socketRef.current.onmessage = async (response) => {
+        if (!response) {
+          console.error('Failed to generate presigned URLs');
+          setIsUploading(false);
+          return;
+        }
+
+        if ('error' in response) {
+          console.error('Error from Lambda:', response.error);
+          setIsUploading(false);
+          return;
+        }
+      const data = JSON.parse(response.data);
 
       // check event action
-      
       if (data.type === 'presignedUrls') {
         await uploadToS3(data.file_urls, data.connectionId)
+      } else if (data.type === 'extractText') {
+        console.log(data)
+        handleExtractedText()
       }
 
     } 
@@ -133,13 +145,13 @@ const LandingPage: React.FC = () => {
       paymentMethod: 'Credit Card',
       items: [
         {
-          description: `Item ${index + 1}A`,
+          name: `Item ${index + 1}A`,
           quantity: 2,
           price: 10.00,
           total: 20.00,
         },
         {
-          description: `Item ${index + 1}B`,
+          name: `Item ${index + 1}B`,
           quantity: 1,
           price: 15.50 + (index * 10),
           total: 15.50 + (index * 10),
@@ -147,6 +159,10 @@ const LandingPage: React.FC = () => {
       ],
     }));
   };
+
+  const handleExtractedText = () => {
+    
+  }
 
   const handleSubmit = async () => {
     if (receipts.length === 0 || isUploading) return;
@@ -158,26 +174,11 @@ const LandingPage: React.FC = () => {
       // Step 1: Generate presigned URLs
       generatePresignedUrls();
 
-      // if (!response) {
-      //   console.error('Failed to generate presigned URLs');
-      //   setIsUploading(false);
-      //   return;
-      // }
-
-      // if ('error' in response) {
-      //   console.error('Error from Lambda:', response.error);
-      //   setIsUploading(false);
-      //   return;
-      // }
-
-      // Step 3: Generate mock data and show results
-      setTimeout(() => {
-        const mockData = generateMockData();
-        setExtractedData(mockData);
-        setCurrentStep(3); // Move to "Instant Results"
-        setShowResults(true); // Switch to results page
-        setIsUploading(false);
-      }, 2000);
+      const extractedData = generateMockData();
+      setExtractedData(extractedData);
+      setCurrentStep(3); // Move to "Instant Results"
+      setShowResults(true); // Switch to results page
+      setIsUploading(false);
 
     } catch (error) {
       console.error('Upload process failed:', error);
