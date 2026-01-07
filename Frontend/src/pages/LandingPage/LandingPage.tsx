@@ -4,9 +4,10 @@ import Hero, { type Receipt } from '../../components/Hero/Hero';
 import Features from '../../components/Features/Features';
 import Footer from '../../components/Footer/Footer';
 import ResultsSection from '../../components/Results/ResultsSection';
-import { type ExtractedData } from '../../types/receipt';
+import { type ExtractedData, } from '../../types/receipt';
 
 interface FileData {
+  id: string,
   name: string;
   type: string;
   size: number;
@@ -32,7 +33,7 @@ const LandingPage: React.FC = () => {
   }, [receipts])
 
   useEffect(() => {
-    const WSS_URL = 'wss://bdoyue9pj6.execute-api.us-west-1.amazonaws.com/dev/'
+    const WSS_URL = import.meta.env.VITE_SOCKET_GATEWAY_URL
     socketRef.current = new WebSocket(WSS_URL)
 
     socketRef.current.onopen = () => {
@@ -59,7 +60,12 @@ const LandingPage: React.FC = () => {
         await uploadToS3(data.file_urls, data.connectionId)
       } else if (data.type === 'extractText') {
         console.log(data)
-        handleExtractedText()
+        const newData = handleExtractedText(data.body.data)
+        // const mockData = generateMockData()
+        // setExtractedData(mockData);
+        // setCurrentStep(3); // Move to "Instant Results"
+        // setShowResults(true); // Switch to results page
+        // setIsUploading(false);
       }
 
     } 
@@ -75,6 +81,7 @@ const LandingPage: React.FC = () => {
 
     // Construct request body
     const fileList: FileData[] = receipts.map(receipt => ({
+      id: receipt.id,
       name: receipt.file.name,
       type: receipt.file.type,
       size: receipt.file.size,
@@ -114,7 +121,9 @@ const LandingPage: React.FC = () => {
           method: 'PUT',
           headers: {
             'Content-Type': receipt.file.type,
-            "x-amz-meta-connectionId": connectionId,
+            'x-amz-meta-connectionId': connectionId,
+            'x-amz-meta-fileId': receipt.id,
+
           },
           body: receipt.file,
         });
@@ -160,8 +169,27 @@ const LandingPage: React.FC = () => {
     }));
   };
 
-  const handleExtractedText = () => {
-    
+  const handleExtractedText = (receipt: any) => {
+    // use name/id to find index of where data should belong so it matches receipts array state
+    // const idx = 0
+    // const newData: ExtractedData = {
+    //   receiptId: receipt.id,
+    //   merchant: receipt.store_name,
+    //   total: receipt.total,
+    //   items: receipt.items.map((item: any) => {
+    //     name: item.item_name
+    //     price: item.price
+    //   })
+    // }
+
+    // setExtractedData(prevData => prevData.map((item, index) => {
+    //   if (index === idx) {
+    //     return newData
+    //   } else {
+    //     return item
+    //   }
+    // }))
+    console.log('handled')
   }
 
   const handleSubmit = async () => {
@@ -173,12 +201,14 @@ const LandingPage: React.FC = () => {
     try {
       // Step 1: Generate presigned URLs
       generatePresignedUrls();
+      setTimeout(() => {
+        const mockData = generateMockData();
+        setExtractedData(mockData);
+        setCurrentStep(3); // Move to "Instant Results"
+        setShowResults(true); // Switch to results page
+        setIsUploading(false);
+      }, 2000);
 
-      const extractedData = generateMockData();
-      setExtractedData(extractedData);
-      setCurrentStep(3); // Move to "Instant Results"
-      setShowResults(true); // Switch to results page
-      setIsUploading(false);
 
     } catch (error) {
       console.error('Upload process failed:', error);

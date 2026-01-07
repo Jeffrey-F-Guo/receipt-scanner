@@ -1,14 +1,12 @@
 export interface LineItem {
-  description: string;
-  quantity: number;
+  name: string;
   price: number;
-  total: number;
 }
 
 export interface ExtractedData {
   receiptId: string;
-  merchant: string;
-  date: string;
+  merchant?: string;
+  date?: string;
   total: number;
   tax?: number;
   subtotal?: number;

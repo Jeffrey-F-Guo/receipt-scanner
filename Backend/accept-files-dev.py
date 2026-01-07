@@ -23,6 +23,7 @@ UPLOAD_DIR_NAME = 'uploads/'
 
 @dataclass
 class FileObj:
+    fileid: str
     filename: str
     filetype: str
     filesize: int
@@ -113,14 +114,17 @@ def create_object_key(filename: str) -> str:
     return object_key
 
 
-def generate_presigned_put_url(s3_client, bucket: str, object_key: str, connectionId:str, content_type: str, expires_in: int) -> Optional[str]:
+def generate_presigned_put_url(s3_client, bucket: str, object_key: str, connectionId:str, fileId:str, content_type: str, expires_in: int) -> Optional[str]:
     try:
         url = s3_client.generate_presigned_url(
             ClientMethod='put_object',
             Params={
                 'Bucket': bucket,
                 'Key': object_key,
-                'Metadata': {'connectionId': connectionId},
+                'Metadata': {
+                    'connectionId': connectionId,
+                    'fileId': fileId,
+                },
                 'ContentType': content_type,
             },
             ExpiresIn=expires_in
@@ -174,12 +178,14 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
             }
 
         # file_obj must have the expected fields
+        fileid = file_data['id']
         filename = file_data['name']
         filetype = file_data['type']
         filesize = file_data['size']
 
         logger.info(f'filename: {filename}, filetype: {filetype}, filesize: {filesize}')
         file_obj = FileObj(
+            fileid=fileid,
             filename=filename,
             filetype=filetype,
             filesize=filesize
@@ -205,6 +211,7 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
             bucket=bucket, 
             object_key=object_key, 
             connectionId=connectionId,
+            fileId=fileid,
             content_type=filetype,
             expires_in=3600
         )

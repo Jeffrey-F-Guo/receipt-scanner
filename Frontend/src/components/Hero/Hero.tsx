@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import heic2any from 'heic2any';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface Receipt {
   id: string;
@@ -75,8 +76,8 @@ const Hero: React.FC<HeroProps> = ({ onSubmit, receipts, setReceipts, isUploadin
         heicFiles.push(file);
       } else if (isImage || isPDF) {
         const newReceipt: Receipt = {
-          id: `${Date.now()}-${Math.random()}`,
-          file,
+          id: uuidv4().toString(),
+          file: file,
           previewUrl: isPDF ? '' : URL.createObjectURL(file),
           isPdf: isPDF,
         };
@@ -97,8 +98,8 @@ const Hero: React.FC<HeroProps> = ({ onSubmit, receipts, setReceipts, isUploadin
       setIsConverting(true);
       const convertedFiles = await convertHEIC(heicFiles);
       const convertedReceipts: Receipt[] = convertedFiles.map(file => ({
-        id: `${Date.now()}-${Math.random()}`,
-        file,
+        id: uuidv4().toString(),
+        file: file,
         previewUrl: URL.createObjectURL(file),
         isPdf: false,
       }));
