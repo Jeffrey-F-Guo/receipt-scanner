@@ -94,6 +94,7 @@ def lambda_handler(event, context):
         logger.info(f"Head object response: {response}")
         metadata = response['Metadata']
         connection_id = metadata['connectionid']
+        file_id = metadata['fileid']
         
         logger.info(f"Processing S3 object: s3://{bucket}/{key}")
 
@@ -133,12 +134,10 @@ def lambda_handler(event, context):
             # Success
             output_body = {
                 'statusCode': 200,
-                'data': parsed_receipts
+                'data': parsed_receipts,
             }
             logger.info(f"Successfully parsed {len(parsed_receipts)} receipt(s)")
 
-        # save to s3 'finished' folder
-        new_key = key.replace(UPLOAD_DIR_NAME, FINISHED_DIR_NAME).rsplit('.', 1)[0] + '.json'
 
     except InvalidTextractResponse as e:
         logger.error(f"Invalid Textract response: {e}")
@@ -162,7 +161,8 @@ def lambda_handler(event, context):
             Data=json.dumps(
                 {
                     'body': output_body,
-                    'type': 'extractText'
+                    'type': 'extractText',
+                    'fileId': file_id
                 }
             ) 
         )
