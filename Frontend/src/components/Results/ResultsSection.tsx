@@ -31,8 +31,22 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({ receipts, extractedData
     name: receipt.file.name,
   }));
 
+  // Find the selected receipt by index
   const currentReceipt = receipts[selectedIndex];
-  const currentData = extractedData[selectedIndex];
+  
+  // Match extracted data by fileId instead of index
+  const currentData = extractedData.find(data => data.fileId === currentReceipt.id);
+
+  // Only show receipt viewer if data is available
+  if (!currentReceipt || !currentData) {
+    return (
+      <div ref={sectionRef} className="bg-gray-50 py-16">
+        <div className="max-w-7xl mx-auto px-6">
+          <p className="text-center text-gray-600">Extracting data from receipt...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div ref={sectionRef} className="bg-gray-50 py-16">

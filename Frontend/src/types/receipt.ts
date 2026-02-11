@@ -4,7 +4,7 @@ export interface LineItem {
 }
 
 export interface ExtractedData {
-  receiptId: string;
+  fileId: string;
   merchant?: string;
   date?: string;
   total: number;

@@ -15,7 +15,7 @@ const ExportActions: React.FC<ExportActionsProps> = ({ data, selectedIndex }) =>
     receiptsToExport.forEach(receipt => {
       if (receipt.items && receipt.items.length > 0) {
         receipt.items.forEach(item => {
-          csvContent += `"${receipt.merchant}","${receipt.date}",${receipt.subtotal || 0},${receipt.tax || 0},${receipt.total},"${item.description}",${item.quantity},${item.price},${item.total}\n`;
+          csvContent += `"${receipt.merchant}","${receipt.date}",${receipt.subtotal || 0},${receipt.tax || 0},${receipt.total},"${item.name}",${item.price}\n`;
         });
       } else {
         csvContent += `"${receipt.merchant}","${receipt.date}",${receipt.subtotal || 0},${receipt.tax || 0},${receipt.total},"","","",""\n`;
@@ -54,7 +54,7 @@ Tax: $${receipt.tax?.toFixed(2) || '0.00'}
 Total: $${receipt.total.toFixed(2)}
 
 Items:
-${receipt.items.map(item => `${item.description} - Qty: ${item.quantity} - $${item.price.toFixed(2)} - Total: $${item.total.toFixed(2)}`).join('\n')}
+${receipt.items.map(item => `${item.name} - Pice: $${item.price.toFixed(2)}`).join('\n')}
     `.trim();
 
     navigator.clipboard.writeText(text);

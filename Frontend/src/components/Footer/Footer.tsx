@@ -36,27 +36,6 @@ const Footer: React.FC = () => {
             </ul>
           </div>
 
-          {/* Company Column */}
-          <div>
-            <h4 className="font-semibold text-black mb-4">Company</h4>
-            <ul className="space-y-2">
-              <li>
-                <a href="#about" className="text-gray-400 hover:text-black transition-colors text-sm">
-                  About
-                </a>
-              </li>
-              <li>
-                <a href="#contact" className="text-gray-400 hover:text-black transition-colors text-sm">
-                  Contact
-                </a>
-              </li>
-              <li>
-                <a href="#terms" className="text-gray-400 hover:text-black transition-colors text-sm">
-                  Terms
-                </a>
-              </li>
-            </ul>
-          </div>
 
           {/* Resources Column */}
           <div>

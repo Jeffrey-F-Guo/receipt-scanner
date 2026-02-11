@@ -33,6 +33,10 @@ const LandingPage: React.FC = () => {
   }, [receipts])
 
   useEffect(() => {
+    console.log('Extracted Data:', extractedData);
+  }, [extractedData])
+
+  useEffect(() => {
     const WSS_URL = import.meta.env.VITE_SOCKET_GATEWAY_URL
     socketRef.current = new WebSocket(WSS_URL)
 
@@ -59,8 +63,10 @@ const LandingPage: React.FC = () => {
       if (data.type === 'presignedUrls') {
         await uploadToS3(data.file_urls, data.connectionId)
       } else if (data.type === 'extractText') {
-        console.log(data)
-        const newData = handleExtractedText(data.body.data)
+        console.log(data.body.data)
+        console.log('aadfasd')
+        handleExtractedText(data.body.data, data.fileId)
+        console.log('mmmmd')
         // const mockData = generateMockData()
         // setExtractedData(mockData);
         // setCurrentStep(3); // Move to "Instant Results"
@@ -169,26 +175,46 @@ const LandingPage: React.FC = () => {
     }));
   };
 
-  const handleExtractedText = (receipt: any) => {
-    // use name/id to find index of where data should belong so it matches receipts array state
-    // const idx = 0
-    // const newData: ExtractedData = {
-    //   receiptId: receipt.id,
-    //   merchant: receipt.store_name,
-    //   total: receipt.total,
-    //   items: receipt.items.map((item: any) => {
-    //     name: item.item_name
-    //     price: item.price
-    //   })
-    // }
+  const handleExtractedText = (textBody: Array<any>, fileId: string) => {
+    console.log('In handle extract')
+    console.log("HALLO", textBody)
+    const entry = textBody['0']
+    
+    // Validate that the file exists in receipts
+    const receiptExists = receiptsRef.current.some(receipt => receipt.id === fileId)
+    if (!receiptExists) {
+      console.error(`No receipt found with fileId: ${fileId}`)
+      return undefined
+    }
 
-    // setExtractedData(prevData => prevData.map((item, index) => {
-    //   if (index === idx) {
-    //     return newData
-    //   } else {
-    //     return item
-    //   }
-    // }))
+    const newData: ExtractedData = {
+      fileId: fileId,
+      merchant: entry.store_name ?? null,
+      total: entry.total,
+      items: entry.items.map((item: any) => ({
+        name: item.item_name,
+        price: item.price
+      }))
+    }
+
+    // Store data by fileId instead of index - order independent
+    setExtractedData(prevData => {
+      const existingIndex = prevData.findIndex(item => item.fileId === fileId)
+      if (existingIndex > -1) {
+        // Update existing data for this fileId
+        return prevData.map((item, index) => 
+          index === existingIndex ? newData : item
+        )
+      } else {
+        // Add new data
+        return [...prevData, newData]
+      }
+    })
+
+    setCurrentStep(3); // Move to "Instant Results"
+    setShowResults(true); // Switch to results page
+    setIsUploading(false);
+
     console.log('handled')
   }
 
@@ -201,13 +227,13 @@ const LandingPage: React.FC = () => {
     try {
       // Step 1: Generate presigned URLs
       generatePresignedUrls();
-      setTimeout(() => {
-        const mockData = generateMockData();
-        setExtractedData(mockData);
-        setCurrentStep(3); // Move to "Instant Results"
-        setShowResults(true); // Switch to results page
-        setIsUploading(false);
-      }, 2000);
+      // setTimeout(() => {
+      //   const mockData = generateMockData();
+      //   setExtractedData(mockData);
+      //   setCurrentStep(3); // Move to "Instant Results"
+      //   setShowResults(true); // Switch to results page
+      //   setIsUploading(false);
+      // }, 2000);
 
 
     } catch (error) {

@@ -6,6 +6,7 @@ interface DataTableProps {
 }
 
 const DataTable: React.FC<DataTableProps> = ({ data }) => {
+  console.log(data.items)
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
@@ -21,12 +22,12 @@ const DataTable: React.FC<DataTableProps> = ({ data }) => {
         <div className="bg-gray-50 p-4 rounded-lg">
           <p className="text-sm text-gray-500 mb-1">Subtotal</p>
           <p className="text-lg font-semibold">
-            ${data.subtotal?.toFixed(2) || '0.00'}
+            {data.subtotal || '0.00'}
           </p>
         </div>
         <div className="bg-black text-white p-4 rounded-lg">
           <p className="text-sm text-gray-300 mb-1">Total</p>
-          <p className="text-xl font-bold">${data.total.toFixed(2)}</p>
+          <p className="text-xl font-bold">{data.total}</p>
         </div>
       </div>
 
@@ -36,7 +37,7 @@ const DataTable: React.FC<DataTableProps> = ({ data }) => {
           {data.tax !== undefined && (
             <div className="bg-gray-50 p-3 rounded-lg">
               <p className="text-sm text-gray-500">Tax</p>
-              <p className="font-medium">${data.tax.toFixed(2)}</p>
+              <p className="font-medium">${data.tax}</p>
             </div>
           )}
           {data.paymentMethod && (
@@ -58,29 +59,17 @@ const DataTable: React.FC<DataTableProps> = ({ data }) => {
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
                     Description
                   </th>
-                  <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">
-                    Qty
-                  </th>
                   <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">
                     Price
-                  </th>
-                  <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">
-                    Total
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {data.items.map((item, index) => (
                   <tr key={index} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-sm text-gray-900">{item.description}</td>
-                    <td className="px-4 py-3 text-sm text-center text-gray-700">
-                      {item.quantity}
-                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{item.name || 'N/A'}</td>
                     <td className="px-4 py-3 text-sm text-right text-gray-700">
-                      ${item.price.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
-                      ${item.total.toFixed(2)}
+                      {item.price}
                     </td>
                   </tr>
                 ))}

@@ -4,7 +4,8 @@ import './index.css'
 import LandingPage from './pages/LandingPage/LandingPage.tsx'
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <LandingPage />
-  </StrictMode>,
+  // <StrictMode>
+  //   <LandingPage />
+  // </StrictMode>,
+  <LandingPage/>
 )
