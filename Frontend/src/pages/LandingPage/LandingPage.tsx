@@ -147,33 +147,6 @@ const LandingPage: React.FC = () => {
     await Promise.all(uploadPromises);
   };
 
-  // TODO: delete this after integrating real data
-  const generateMockData = (): ExtractedData[] => {
-    // Generate mock extracted data for each receipt
-    return receipts.map((receipt, index) => ({
-      receiptId: receipt.id,
-      merchant: `Store ${index + 1}`,
-      date: new Date().toISOString().split('T')[0],
-      subtotal: 35.50 + (index * 10),
-      tax: 3.55 + index,
-      total: 39.05 + (index * 11),
-      paymentMethod: 'Credit Card',
-      items: [
-        {
-          name: `Item ${index + 1}A`,
-          quantity: 2,
-          price: 10.00,
-          total: 20.00,
-        },
-        {
-          name: `Item ${index + 1}B`,
-          quantity: 1,
-          price: 15.50 + (index * 10),
-          total: 15.50 + (index * 10),
-        },
-      ],
-    }));
-  };
 
   const handleExtractedText = (textBody: Array<any>, fileId: string) => {
     console.log('In handle extract')
