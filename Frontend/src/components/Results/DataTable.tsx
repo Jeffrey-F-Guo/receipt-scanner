@@ -19,7 +19,7 @@ const DataTable: React.FC<DataTableProps> = ({ data }) => {
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="bg-white border border-gray-200 p-4 rounded-lg">
           <p className="text-sm text-gray-500 mb-1">Merchant</p>
           <p className="text-lg font-semibold">{data.merchant || 'Unknown'}</p>
@@ -28,31 +28,17 @@ const DataTable: React.FC<DataTableProps> = ({ data }) => {
           <p className="text-sm text-gray-500 mb-1">Date</p>
           <p className="text-lg font-semibold">{data.date || 'N/A'}</p>
         </div>
-        <div className="bg-white border border-gray-200 p-4 rounded-lg">
-          <p className="text-sm text-gray-500 mb-1">Subtotal</p>
-          <p className="text-lg font-semibold">{formatMoney(data.subtotal)}</p>
-        </div>
-        <div className="bg-black text-white p-4 rounded-lg">
+        <div className="col-span-2 md:col-span-1 bg-black text-white p-4 rounded-lg">
           <p className="text-sm text-gray-300 mb-1">Total</p>
           <p className="text-xl font-bold">{formatMoney(data.total)}</p>
         </div>
       </div>
 
       {/* Additional Info */}
-      {(data.tax !== undefined || data.paymentMethod) && (
-        <div className="grid grid-cols-2 gap-4">
-          {data.tax !== undefined && (
-            <div className="bg-white border border-gray-200 p-3 rounded-lg">
-              <p className="text-sm text-gray-500">Tax</p>
-              <p className="font-medium">{formatMoney(data.tax)}</p>
-            </div>
-          )}
-          {data.paymentMethod && (
-            <div className="bg-white border border-gray-200 p-3 rounded-lg">
-              <p className="text-sm text-gray-500">Payment Method</p>
-              <p className="font-medium">{data.paymentMethod}</p>
-            </div>
-          )}
+      {data.paymentMethod && (
+        <div className="bg-white border border-gray-200 p-3 rounded-lg">
+          <p className="text-sm text-gray-500">Payment Method</p>
+          <p className="font-medium">{data.paymentMethod}</p>
         </div>
       )}
 

@@ -99,32 +99,30 @@ const traderJoes: ExtractedData = {
 describe('buildCsv', () => {
   it('writes one row per item with as many columns as the header', () => {
     expect(buildCsv([traderJoes])).toBe(
-      'Merchant,Date,Subtotal,Tax,Total,Item,Price\n' +
-      "Trader Joe's,12/20/2025,,,23.47,BANANAS,0.95\n" +
-      'Trader Joe\'s,12/20/2025,,,23.47,"MILK, ""2%""",5.49\n',
+      'Merchant,Date,Total,Item,Price\n' +
+      "Trader Joe's,12/20/2025,23.47,BANANAS,0.95\n" +
+      'Trader Joe\'s,12/20/2025,23.47,"MILK, ""2%""",5.49\n',
     );
   });
 
   it('writes a single row for a receipt with no items', () => {
     const shop: ExtractedData = { fileId: 'b', merchant: 'Shop', total: 10, items: [] };
     expect(buildCsv([shop])).toBe(
-      'Merchant,Date,Subtotal,Tax,Total,Item,Price\nShop,,,,10.00,,\n',
+      'Merchant,Date,Total,Item,Price\nShop,,10.00,,\n',
     );
   });
 
   it('skips receipts that failed extraction', () => {
     const failed: ExtractedData = { fileId: 'c', total: null, items: [], error: 'x' };
-    expect(buildCsv([failed])).toBe('Merchant,Date,Subtotal,Tax,Total,Item,Price\n');
+    expect(buildCsv([failed])).toBe('Merchant,Date,Total,Item,Price\n');
   });
 });
 
 describe('buildClipboardText', () => {
-  it('formats a receipt, using dashes for missing money', () => {
+  it('formats a receipt with its items', () => {
     expect(buildClipboardText(traderJoes)).toBe(
       "Merchant: Trader Joe's\n" +
       'Date: 12/20/2025\n' +
-      'Subtotal: —\n' +
-      'Tax: —\n' +
       'Total: $23.47\n' +
       '\n' +
       'Items:\n' +

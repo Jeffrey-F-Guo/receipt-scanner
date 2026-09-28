@@ -51,7 +51,7 @@ export function toExtractedData(fileId: string, body: ExtractionBody): Extracted
   };
 }
 
-const CSV_HEADER = ['Merchant', 'Date', 'Subtotal', 'Tax', 'Total', 'Item', 'Price'];
+const CSV_HEADER = ['Merchant', 'Date', 'Total', 'Item', 'Price'];
 
 function csvField(value: string | undefined): string {
   if (value === undefined) return '';
@@ -65,10 +65,7 @@ function csvMoney(value: number | null | undefined): string {
 export function buildCsv(receipts: ExtractedData[]): string {
   const rows = [CSV_HEADER.join(',')];
   for (const r of receipts.filter(r => !r.error)) {
-    const base = [
-      csvField(r.merchant), csvField(r.date),
-      csvMoney(r.subtotal), csvMoney(r.tax), csvMoney(r.total),
-    ];
+    const base = [csvField(r.merchant), csvField(r.date), csvMoney(r.total)];
     if (r.items.length === 0) {
       rows.push([...base, '', ''].join(','));
     }
@@ -83,8 +80,6 @@ export function buildClipboardText(r: ExtractedData): string {
   return [
     `Merchant: ${r.merchant ?? 'Unknown'}`,
     `Date: ${r.date ?? 'N/A'}`,
-    `Subtotal: ${formatMoney(r.subtotal)}`,
-    `Tax: ${formatMoney(r.tax)}`,
     `Total: ${formatMoney(r.total)}`,
     '',
     'Items:',
