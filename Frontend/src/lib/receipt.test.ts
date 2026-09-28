@@ -30,5 +30,6 @@ describe('formatMoney', () => {
   it('shows a dash for missing values', () => {
     expect(formatMoney(null)).toBe('—');
     expect(formatMoney(undefined)).toBe('—');
+    expect(formatMoney(NaN)).toBe('—');
   });
 });

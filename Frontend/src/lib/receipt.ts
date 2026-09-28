@@ -8,7 +8,7 @@ export function parseMoney(raw: unknown): number | null {
 }
 
 export function formatMoney(value: number | null | undefined): string {
-  if (value === null || value === undefined) return '—';
+  if (value === null || value === undefined || !Number.isFinite(value)) return '—';
   const sign = value < 0 ? '-' : '';
   return `${sign}$${Math.abs(value).toFixed(2)}`;
 }
