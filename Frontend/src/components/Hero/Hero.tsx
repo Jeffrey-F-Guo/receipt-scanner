@@ -203,7 +203,7 @@ const Hero: React.FC<HeroProps> = ({ onSubmit, receipts, setReceipts, isUploadin
         </div>
 
         {/* Upload Area */}
-        <div className="max-w-4xl mx-auto">
+        <div id="upload" className="max-w-4xl mx-auto scroll-mt-8">
           {/* Receipt Counter */}
           {receipts.length > 0 && (
             <div className="mb-4 text-center">

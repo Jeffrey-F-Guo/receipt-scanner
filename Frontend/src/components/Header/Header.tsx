@@ -16,21 +16,18 @@ const Header: React.FC = () => {
 
           {/* Navigation */}
           <nav className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-gray-600 hover:text-black transition-colors text-sm">
-              Features
-            </a>
             <a href="#how-it-works" className="text-gray-600 hover:text-black transition-colors text-sm">
               How It Works
-            </a>
-            <a href="#faq" className="text-gray-600 hover:text-black transition-colors text-sm">
-              FAQ
             </a>
           </nav>
 
           {/* CTA Button */}
-          <button className="bg-black text-white px-6 py-2 rounded-full hover:bg-gray-800 transition-colors text-sm font-medium">
+          <a
+            href="#upload"
+            className="bg-black text-white px-6 py-2 rounded-full hover:bg-gray-800 transition-colors text-sm font-medium"
+          >
             Try App
-          </button>
+          </a>
         </div>
       </div>
     </header>
