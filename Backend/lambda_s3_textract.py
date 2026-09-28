@@ -21,6 +21,7 @@ import logging
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, ValidationError
 from botocore.config import Config
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -34,7 +35,12 @@ gateway_client = boto3.client(
     'apigatewaymanagementapi', 
     endpoint_url='https://bdoyue9pj6.execute-api.us-west-1.amazonaws.com/dev/'
 )
-textract_client = boto3.client('textract')
+# Several uploads at once can exceed Textract's per-second quota; back off and retry
+# throttled calls instead of failing the receipt.
+textract_client = boto3.client(
+    'textract',
+    config=Config(retries={'mode': 'adaptive', 'max_attempts': 8})
+)
 
 # Data classes
 class ReceiptItem(BaseModel):
@@ -74,39 +80,31 @@ def lambda_handler(event, context):
         Response with statusCode and body
     """
 
-    # Extract S3 information from event
+    # Without a valid event, key, and upload metadata there is no connection to
+    # report back to, so these checks log and stop.
     try:
         record = event['Records'][0]
         bucket = record['s3']['bucket']['name']
         key = record['s3']['object']['key']
+    except (KeyError, IndexError, TypeError) as e:
+        logger.error(f"Invalid S3 event structure: {e}")
+        return {'statusCode': 400}
 
-        output_body = {}
+    if not key.startswith(UPLOAD_DIR_NAME):
+        logger.error(f"Invalid s3 key: {key}. Object must be from the {UPLOAD_DIR_NAME} directory.")
+        return {'statusCode': 400}
 
-        if not key.startswith(UPLOAD_DIR_NAME):
-            logger.error(f"Invalid s3 key: {key}. Object must be from the {UPLOAD_DIR_NAME} directory.")
-            output_body =  {
-                'statusCode': 400,
-                'body': {'error': 'Invalid S3 object key'}
-            }   
-
-        # Check S3 object for valid metadata
+    try:
         response = s3_client.head_object(Key=key, Bucket=bucket)
         logger.info(f"Head object response: {response}")
         metadata = response['Metadata']
         connection_id = metadata['connectionid']
         file_id = metadata['fileid']
-        
-        logger.info(f"Processing S3 object: s3://{bucket}/{key}")
+    except (KeyError, ClientError) as e:
+        logger.error(f"Missing upload metadata for s3://{bucket}/{key}: {e}")
+        return {'statusCode': 400}
 
-    except (KeyError, IndexError) as e:
-        logger.error(f"Invalid S3 event structure: {e}")
-        output_body =  {
-            'statusCode': 400,
-            'body': {'error': 'Invalid S3 event'}
-        }
-
-
-
+    logger.info(f"Processing S3 object: s3://{bucket}/{key}")
 
     # Process receipt with Textract
     try:
