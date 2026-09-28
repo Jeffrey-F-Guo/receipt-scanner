@@ -9,7 +9,7 @@ interface DataTableProps {
 const DataTable: React.FC<DataTableProps> = ({ data }) => {
   if (data.error) {
     return (
-      <div className="bg-white border border-red-200 rounded-lg p-6">
+      <div role="alert" className="bg-white border border-red-200 rounded-lg p-6">
         <p className="font-semibold text-red-700 mb-1">Couldn't extract this receipt</p>
         <p className="text-sm text-gray-600">{data.error}</p>
       </div>
