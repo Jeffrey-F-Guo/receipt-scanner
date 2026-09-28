@@ -85,7 +85,11 @@ def validate_file(allowed_types: Set, file_obj: FileObj) -> Tuple[bool, str]:
 # ============================
 # Helper functions for url gen
 # ============================
-def validate_file_obj(file_entry: Dict[str, Any]) -> bool:
+def validate_file_obj(file_entry: Any) -> bool:
+    if not isinstance(file_entry, dict):
+        return False
+    if 'id' not in file_entry:
+        return False
     if 'name' not in file_entry:
         return False
     if 'type' not in file_entry:
@@ -136,33 +140,44 @@ def generate_presigned_put_url(s3_client, bucket: str, object_key: str, connecti
 
 
 
+def reject(connection_id: str, status_code: int, message: str) -> Dict[str, Any]:
+    """Send the error to the browser; API Gateway doesn't forward route responses to it."""
+    logger.error(message)
+    try:
+        get_gateway_client().post_to_connection(
+            ConnectionId=connection_id,
+            Data=json.dumps({'type': 'presignError', 'error': message})
+        )
+    except ClientError as e:
+        logger.error(f'Failed to send error to {connection_id}: {e}')
+    return {
+        'statusCode': status_code,
+        'body': json.dumps({'error': message})
+    }
+
+
 def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
     logger.info(f'Event: {event}')
+    connectionId = event['requestContext']['connectionId']
+
     bucket = os.getenv('BUCKET_NAME')
     if not bucket:
-        return {
-            'statusCode': 500,
-            'body': json.dumps({'error': 'BUCKET_NAME not configured'})
-        }
-    
+        return reject(connectionId, 500, 'Error: upload storage is not configured')
 
-    body = json.loads(event['body'])
-    if 'files' not in body:
-        return {
-            'statusCode': 400,
-            'body': json.dumps({'error': 'Missing files array'})
-        }
-    
+    try:
+        body = json.loads(event.get('body') or '')
+    except json.JSONDecodeError:
+        return reject(connectionId, 400, 'Error: incoming data is incorrect format')
+
+    if not isinstance(body, dict) or not isinstance(body.get('files'), list):
+        return reject(connectionId, 400, 'Error: Missing files array')
+
     files = body['files']
-    connectionId = event['requestContext']['connectionId']
 
     s3_client = get_s3_client()
     gateway_client = get_gateway_client()
     if not s3_client:
-        return {
-            'statusCode': 500,
-            'body': json.dumps({'error': 'Failed to initialize S3 client'})
-        }
+        return reject(connectionId, 500, 'Error: failed to initialize S3 client')
     if not gateway_client:
         return {
             'statusCode': 500,
@@ -172,10 +187,7 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
     presigned_urls: Dict[str, str] = {}
     for file_data in files:
         if not validate_file_obj(file_data):
-            return {
-                'statusCode': 400,
-                'body': json.dumps({'error': 'Error: incoming data is incorrect format'})
-            }
+            return reject(connectionId, 400, 'Error: incoming data is incorrect format')
 
         # file_obj must have the expected fields
         fileid = file_data['id']
@@ -194,17 +206,11 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         is_valid_file, error_msg = validate_file(ALLOWED_TYPES, file_obj)
 
         if not is_valid_file:
-            return {
-                'statusCode': 400,
-                'body': json.dumps({'error': error_msg})
-            }
+            return reject(connectionId, 400, error_msg)
 
         object_key = create_object_key(filename)
         if object_key == "":
-            return {
-                'statusCode': 400,
-                'body': json.dumps({'error': 'Could not create object key'})
-            }
+            return reject(connectionId, 400, f'Error: could not create an upload key for {filename}')
 
         url = generate_presigned_put_url(
             s3_client=s3_client, 
@@ -216,9 +222,10 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
             expires_in=3600
         )
 
-        if url:
-            presigned_urls[filename] = url
-        
+        if not url:
+            return reject(connectionId, 500, f'Error: could not prepare upload for {filename}')
+        presigned_urls[filename] = url
+
     gateway_client.post_to_connection(
         ConnectionId = connectionId,
         Data = json.dumps(
