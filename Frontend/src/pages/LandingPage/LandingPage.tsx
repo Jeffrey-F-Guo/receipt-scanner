@@ -95,6 +95,8 @@ const LandingPage: React.FC = () => {
       // verify socket open
       if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
         console.error("Socket is not connected.");
+        setIsUploading(false);
+        setCurrentStep(0);
         return;
       }
       socketRef.current.send(JSON.stringify(requestPayload))
