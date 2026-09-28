@@ -92,7 +92,7 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({ receipts, extractedData
           />
 
           {/* Export Actions */}
-          <ExportActions data={extractedData} selectedIndex={selectedIndex} />
+          <ExportActions data={extractedData} selected={currentData} selectedIndex={selectedIndex} />
         </div>
       </div>
     </div>

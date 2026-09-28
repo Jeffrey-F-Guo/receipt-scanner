@@ -1,63 +1,44 @@
 import React from 'react';
 import { type ExtractedData } from '../../types/receipt';
+import { buildClipboardText, buildCsv } from '../../lib/receipt';
 
 interface ExportActionsProps {
   data: ExtractedData[];
+  selected: ExtractedData;
   selectedIndex: number;
 }
 
-const ExportActions: React.FC<ExportActionsProps> = ({ data, selectedIndex }) => {
+const download = (content: string, type: string, filename: string) => {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+const ExportActions: React.FC<ExportActionsProps> = ({ data, selected, selectedIndex }) => {
   const exportToCSV = (allReceipts: boolean = false) => {
-    const receiptsToExport = allReceipts ? data : [data[selectedIndex]];
-
-    let csvContent = 'Merchant,Date,Subtotal,Tax,Total,Item,Quantity,Price,Item Total\n';
-
-    receiptsToExport.forEach(receipt => {
-      if (receipt.items && receipt.items.length > 0) {
-        receipt.items.forEach(item => {
-          csvContent += `"${receipt.merchant}","${receipt.date}",${receipt.subtotal || 0},${receipt.tax || 0},${receipt.total},"${item.name}",${item.price}\n`;
-        });
-      } else {
-        csvContent += `"${receipt.merchant}","${receipt.date}",${receipt.subtotal || 0},${receipt.tax || 0},${receipt.total},"","","",""\n`;
-      }
-    });
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = allReceipts ? 'all_receipts.csv' : `receipt_${selectedIndex + 1}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    const receiptsToExport = allReceipts ? data : [selected];
+    download(
+      buildCsv(receiptsToExport),
+      'text/csv',
+      allReceipts ? 'all_receipts.csv' : `receipt_${selectedIndex + 1}.csv`,
+    );
   };
 
   const exportToJSON = (allReceipts: boolean = false) => {
-    const receiptsToExport = allReceipts ? data : [data[selectedIndex]];
-    const jsonContent = JSON.stringify(receiptsToExport, null, 2);
-
-    const blob = new Blob([jsonContent], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = allReceipts ? 'all_receipts.json' : `receipt_${selectedIndex + 1}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    const receiptsToExport = allReceipts ? data : [selected];
+    download(
+      JSON.stringify(receiptsToExport, null, 2),
+      'application/json',
+      allReceipts ? 'all_receipts.json' : `receipt_${selectedIndex + 1}.json`,
+    );
   };
 
   const copyToClipboard = () => {
-    const receipt = data[selectedIndex];
-    const text = `
-Merchant: ${receipt.merchant}
-Date: ${receipt.date}
-Subtotal: $${receipt.subtotal?.toFixed(2) || '0.00'}
-Tax: $${receipt.tax?.toFixed(2) || '0.00'}
-Total: $${receipt.total.toFixed(2)}
-
-Items:
-${receipt.items.map(item => `${item.name} - Pice: $${item.price.toFixed(2)}`).join('\n')}
-    `.trim();
-
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(buildClipboardText(selected));
   };
 
   return (
