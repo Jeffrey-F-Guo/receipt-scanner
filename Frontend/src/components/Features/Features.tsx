@@ -57,11 +57,11 @@ const Features: React.FC<FeaturesProps> = ({ currentStep = 0 }) => {
   }, [currentStep, steps.length]);
 
   return (
-    <div className="bg-white py-16">
+    <div id="how-it-works" className="bg-white py-16">
       <div className="max-w-7xl mx-auto px-6">
         <div className="relative">
           {/* Progress bar background */}
-          <div className="absolute top-8 left-0 right-0 h-1 bg-gray-200 mx-12">
+          <div className="hidden md:block absolute top-8 left-0 right-0 h-1 bg-gray-200 mx-12">
             {/* Progress bar fill */}
             <div
               className="h-full bg-black transition-all duration-500 ease-out"
