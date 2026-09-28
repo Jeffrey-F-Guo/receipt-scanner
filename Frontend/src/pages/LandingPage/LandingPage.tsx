@@ -25,6 +25,7 @@ const LandingPage: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedData[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const socketRef = useRef<WebSocket>(null)
   const receiptsRef = useRef<Receipt[]>([])
@@ -66,6 +67,10 @@ const LandingPage: React.FC = () => {
         }
       } else if (data.type === 'extractText') {
         handleExtractedText(data.body, data.fileId)
+      } else if (data.type === 'presignError') {
+        setUploadError(data.error)
+        setIsUploading(false);
+        setCurrentStep(0);
       }
     }
     return () => {
@@ -165,6 +170,7 @@ const LandingPage: React.FC = () => {
     if (receipts.length === 0 || isUploading) return;
 
     setIsUploading(true);
+    setUploadError(null);
     setCurrentStep(1); // Move to "Extract Text"
 
     try {
@@ -205,6 +211,7 @@ const LandingPage: React.FC = () => {
             receipts={receipts}
             setReceipts={setReceipts}
             isUploading={isUploading}
+            error={uploadError}
           />
           <Features currentStep={currentStep} />
         </>

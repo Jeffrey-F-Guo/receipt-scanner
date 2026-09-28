@@ -14,12 +14,13 @@ interface HeroProps {
   receipts: Receipt[];
   setReceipts: React.Dispatch<React.SetStateAction<Receipt[]>>;
   isUploading?: boolean;
+  error?: string | null;
 }
 
 const MAX_RECEIPTS = 10;
 const CONVERSION_SUFFIX = 'jpg';
 
-const Hero: React.FC<HeroProps> = ({ onSubmit, receipts, setReceipts, isUploading = false }) => {
+const Hero: React.FC<HeroProps> = ({ onSubmit, receipts, setReceipts, isUploading = false, error }) => {
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
@@ -406,6 +407,12 @@ const Hero: React.FC<HeroProps> = ({ onSubmit, receipts, setReceipts, isUploadin
                   )}
                 </button>
               </div>
+
+              {error && (
+                <p role="alert" className="mt-4 text-center text-sm text-red-600">
+                  {error}
+                </p>
+              )}
             </div>
           )}
         </div>
