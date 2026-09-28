@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 
 interface Step {
   title: string;
@@ -11,8 +11,6 @@ interface FeaturesProps {
 }
 
 const Features: React.FC<FeaturesProps> = ({ currentStep = 0 }) => {
-  const [progress, setProgress] = useState(0);
-
   const steps: Step[] = [
     {
       title: 'Upload Image',
@@ -52,16 +50,18 @@ const Features: React.FC<FeaturesProps> = ({ currentStep = 0 }) => {
     },
   ];
 
-  useEffect(() => {
-    setProgress((currentStep / steps.length) * 100);
-  }, [currentStep, steps.length]);
+  // Fill runs from the first icon's centre to the last one's, so each step lands on an icon.
+  const progress = Math.min(currentStep / (steps.length - 1), 1) * 100;
 
   return (
     <div id="how-it-works" className="bg-white py-16">
       <div className="max-w-7xl mx-auto px-6">
         <div className="relative">
-          {/* Progress bar background */}
-          <div className="hidden md:block absolute top-8 left-0 right-0 h-1 bg-gray-200 mx-12">
+          {/* Progress bar background: spans column centres (4 columns, gap-8 = 2rem) */}
+          <div
+            className="hidden md:block absolute top-8 h-1 bg-gray-200"
+            style={{ left: 'calc(12.5% - 0.75rem)', right: 'calc(12.5% - 0.75rem)' }}
+          >
             {/* Progress bar fill */}
             <div
               className="h-full bg-black transition-all duration-500 ease-out"
