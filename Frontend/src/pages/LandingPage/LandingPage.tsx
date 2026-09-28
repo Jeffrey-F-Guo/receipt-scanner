@@ -5,6 +5,7 @@ import Features from '../../components/Features/Features';
 import Footer from '../../components/Footer/Footer';
 import ResultsSection from '../../components/Results/ResultsSection';
 import { type ExtractedData, } from '../../types/receipt';
+import { toExtractedData, type ExtractionBody } from '../../lib/receipt';
 
 interface FileData {
   id: string,
@@ -33,11 +34,13 @@ const LandingPage: React.FC = () => {
   }, [receipts])
 
   useEffect(() => {
-    console.log('Extracted Data:', extractedData);
-  }, [extractedData])
-
-  useEffect(() => {
     const WSS_URL = import.meta.env.VITE_SOCKET_GATEWAY_URL
+    
+    if (!WSS_URL) {
+      console.error('WebSocket URL not configured. Please set VITE_SOCKET_GATEWAY_URL environment variable');
+      return;
+    }
+
     socketRef.current = new WebSocket(WSS_URL)
 
     socketRef.current.onopen = () => {
@@ -45,36 +48,26 @@ const LandingPage: React.FC = () => {
     };
 
 
-    socketRef.current.onmessage = async (response) => {
-        if (!response) {
-          console.error('Failed to generate presigned URLs');
-          setIsUploading(false);
-          return;
-        }
-
-        if ('error' in response) {
-          console.error('Error from Lambda:', response.error);
-          setIsUploading(false);
-          return;
-        }
-      const data = JSON.parse(response.data);
-
-      // check event action
-      if (data.type === 'presignedUrls') {
-        await uploadToS3(data.file_urls, data.connectionId)
-      } else if (data.type === 'extractText') {
-        console.log(data.body.data)
-        console.log('aadfasd')
-        handleExtractedText(data.body.data, data.fileId)
-        console.log('mmmmd')
-        // const mockData = generateMockData()
-        // setExtractedData(mockData);
-        // setCurrentStep(3); // Move to "Instant Results"
-        // setShowResults(true); // Switch to results page
-        // setIsUploading(false);
+    socketRef.current.onmessage = async (event) => {
+      let data;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        console.error('Non-JSON WebSocket message:', event.data);
+        setIsUploading(false);
+        return;
       }
 
-    } 
+      if (data.type === 'presignedUrls') {
+        try {
+          await uploadToS3(data.file_urls, data.connectionId)
+        } catch {
+          setIsUploading(false);
+        }
+      } else if (data.type === 'extractText') {
+        handleExtractedText(data.body, data.fileId)
+      }
+    }
     return () => {
       if (socketRef.current) {
         socketRef.current.close()
@@ -148,47 +141,22 @@ const LandingPage: React.FC = () => {
   };
 
 
-  const handleExtractedText = (textBody: Array<any>, fileId: string) => {
-    console.log('In handle extract')
-    console.log("HALLO", textBody)
-    const entry = textBody['0']
-    
-    // Validate that the file exists in receipts
-    const receiptExists = receiptsRef.current.some(receipt => receipt.id === fileId)
-    if (!receiptExists) {
+  const handleExtractedText = (body: ExtractionBody, fileId: string) => {
+    if (!receiptsRef.current.some(receipt => receipt.id === fileId)) {
       console.error(`No receipt found with fileId: ${fileId}`)
-      return undefined
+      return
     }
 
-    const newData: ExtractedData = {
-      fileId: fileId,
-      merchant: entry.store_name ?? null,
-      total: entry.total,
-      items: entry.items.map((item: any) => ({
-        name: item.item_name,
-        price: item.price
-      }))
-    }
-
-    // Store data by fileId instead of index - order independent
-    setExtractedData(prevData => {
-      const existingIndex = prevData.findIndex(item => item.fileId === fileId)
-      if (existingIndex > -1) {
-        // Update existing data for this fileId
-        return prevData.map((item, index) => 
-          index === existingIndex ? newData : item
-        )
-      } else {
-        // Add new data
-        return [...prevData, newData]
-      }
-    })
+    // Failed extractions still produce an entry (with `error`) so the UI can show it.
+    const newData = toExtractedData(fileId, body)
+    setExtractedData(prevData => [
+      ...prevData.filter(item => item.fileId !== fileId),
+      newData,
+    ])
 
     setCurrentStep(3); // Move to "Instant Results"
     setShowResults(true); // Switch to results page
     setIsUploading(false);
-
-    console.log('handled')
   }
 
   const handleSubmit = async () => {
