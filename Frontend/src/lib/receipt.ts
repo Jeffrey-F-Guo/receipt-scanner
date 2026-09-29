@@ -51,38 +51,38 @@ export function toExtractedData(fileId: string, body: ExtractionBody): Extracted
   };
 }
 
-const CSV_HEADER = ['Merchant', 'Date', 'Total', 'Item', 'Price'];
+const EXPORT_HEADER = ['Merchant', 'Date', 'Total', 'Item', 'Price'];
 
-function csvField(value: string | undefined): string {
-  if (value === undefined) return '';
-  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
-}
-
-function csvMoney(value: number | null | undefined): string {
+function exportMoney(value: number | null | undefined): string {
   return value === null || value === undefined ? '' : value.toFixed(2);
 }
 
-export function buildCsv(receipts: ExtractedData[]): string {
-  const rows = [CSV_HEADER.join(',')];
+// Header plus one row per line item (merchant, date and total repeated); failed receipts skipped.
+function exportRows(receipts: ExtractedData[]): string[][] {
+  const rows = [EXPORT_HEADER];
   for (const r of receipts.filter(r => !r.error)) {
-    const base = [csvField(r.merchant), csvField(r.date), csvMoney(r.total)];
+    const base = [r.merchant ?? '', r.date ?? '', exportMoney(r.total)];
     if (r.items.length === 0) {
-      rows.push([...base, '', ''].join(','));
+      rows.push([...base, '', '']);
     }
     for (const item of r.items) {
-      rows.push([...base, csvField(item.name), csvMoney(item.price)].join(','));
+      rows.push([...base, item.name, exportMoney(item.price)]);
     }
   }
-  return rows.join('\n') + '\n';
+  return rows;
 }
 
-export function buildClipboardText(r: ExtractedData): string {
-  return [
-    `Merchant: ${r.merchant ?? 'Unknown'}`,
-    `Date: ${r.date ?? 'N/A'}`,
-    `Total: ${formatMoney(r.total)}`,
-    '',
-    'Items:',
-    ...r.items.map(item => `${item.name} - Price: ${formatMoney(item.price)}`),
-  ].join('\n');
+function csvField(value: string): string {
+  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+export function buildCsv(receipts: ExtractedData[]): string {
+  return exportRows(receipts).map(row => row.map(csvField).join(',')).join('\n') + '\n';
+}
+
+// Tab-separated so pasting into Google Sheets or Excel fills cells.
+export function buildTsv(receipts: ExtractedData[]): string {
+  return exportRows(receipts)
+    .map(row => row.map(value => value.replace(/[\t\r\n]+/g, ' ')).join('\t'))
+    .join('\n');
 }

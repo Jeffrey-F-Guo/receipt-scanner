@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { ExtractedData } from '../types/receipt';
 import {
-  buildClipboardText,
   buildCsv,
+  buildTsv,
   formatMoney,
   parseMoney,
   toExtractedData,
@@ -116,18 +116,29 @@ describe('buildCsv', () => {
     const failed: ExtractedData = { fileId: 'c', total: null, items: [], error: 'x' };
     expect(buildCsv([failed])).toBe('Merchant,Date,Total,Item,Price\n');
   });
+
+  it('quotes fields containing a carriage return', () => {
+    const r: ExtractedData = { fileId: 'd', merchant: 'A\rB', total: 1, items: [] };
+    expect(buildCsv([r])).toBe('Merchant,Date,Total,Item,Price\n"A\rB",,1.00,,\n');
+  });
 });
 
-describe('buildClipboardText', () => {
-  it('formats a receipt with its items', () => {
-    expect(buildClipboardText(traderJoes)).toBe(
-      "Merchant: Trader Joe's\n" +
-      'Date: 12/20/2025\n' +
-      'Total: $23.47\n' +
-      '\n' +
-      'Items:\n' +
-      'BANANAS - Price: $0.95\n' +
-      'MILK, "2%" - Price: $5.49',
+describe('buildTsv', () => {
+  it('writes the same table as the CSV, tab-separated for pasting into a spreadsheet', () => {
+    expect(buildTsv([traderJoes])).toBe(
+      'Merchant\tDate\tTotal\tItem\tPrice\n' +
+      "Trader Joe's\t12/20/2025\t23.47\tBANANAS\t0.95\n" +
+      'Trader Joe\'s\t12/20/2025\t23.47\tMILK, "2%"\t5.49',
+    );
+  });
+
+  it('replaces tabs and line breaks inside values so cells stay aligned', () => {
+    const r: ExtractedData = {
+      fileId: 'e', merchant: 'Big\tStore', total: 2,
+      items: [{ name: 'LINE\r\nBREAK', price: 2 }],
+    };
+    expect(buildTsv([r])).toBe(
+      'Merchant\tDate\tTotal\tItem\tPrice\nBig Store\t\t2.00\tLINE BREAK\t2.00',
     );
   });
 });

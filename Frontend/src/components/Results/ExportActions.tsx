@@ -1,6 +1,6 @@
 import React from 'react';
 import { type ExtractedData } from '../../types/receipt';
-import { buildClipboardText, buildCsv } from '../../lib/receipt';
+import { buildCsv, buildTsv } from '../../lib/receipt';
 
 interface ExportActionsProps {
   data: ExtractedData[];
@@ -40,7 +40,7 @@ const ExportActions: React.FC<ExportActionsProps> = ({ data, selected, selectedI
   };
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(buildClipboardText(selected));
+    navigator.clipboard.writeText(buildTsv([selected]));
   };
 
   return (
