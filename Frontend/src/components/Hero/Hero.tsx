@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import heic2any from 'heic2any';
 import { v4 as uuidv4 } from 'uuid';
+import { shrinkImage } from '../../lib/image';
 
 export interface Receipt {
   id: string;
@@ -54,61 +55,65 @@ const Hero: React.FC<HeroProps> = ({ onSubmit, receipts, setReceipts, isUploadin
     const heicFiles: File[] = [];
     const validFiles: Receipt[] = [];
 
-    for (const file of filesToAdd) {
-      const isHEIC = file.name.toLowerCase().endsWith('.heic');
-      const isPDF = file.type === 'application/pdf';
-      const isImage = file.type.startsWith('image/');
+    setIsConverting(true);
+    try {
+      for (const file of filesToAdd) {
+        const isHEIC = file.name.toLowerCase().endsWith('.heic');
+        const isPDF = file.type === 'application/pdf';
+        const isImage = file.type.startsWith('image/');
 
-      // Check for duplicates
-      const isDuplicate = receipts.some(r => {
-        if (isHEIC) {
-          const convertedName = file.name.replace(/\.heic$/i, `.${CONVERSION_SUFFIX}`);
-          return r.file.name === convertedName || r.file.name === file.name;
+        // Check for duplicates
+        const isDuplicate = receipts.some(r => {
+          if (isHEIC) {
+            const convertedName = file.name.replace(/\.heic$/i, `.${CONVERSION_SUFFIX}`);
+            return r.file.name === convertedName || r.file.name === file.name;
+          }
+          return r.file.name === file.name;
+        });
+
+        if (isDuplicate) {
+          console.log(`Skipping duplicate file: ${file.name}`);
+          continue;
         }
-        return r.file.name === file.name;
-      });
 
-      if (isDuplicate) {
-        console.log(`Skipping duplicate file: ${file.name}`);
-        continue;
+        if (isHEIC) {
+          heicFiles.push(file);
+        } else if (isImage || isPDF) {
+          const prepared = isPDF ? file : await shrinkImage(file);
+          const newReceipt: Receipt = {
+            id: uuidv4().toString(),
+            file: prepared,
+            previewUrl: isPDF ? '' : URL.createObjectURL(prepared),
+            isPdf: isPDF,
+          };
+          validFiles.push(newReceipt);
+        }
       }
 
-      if (isHEIC) {
-        heicFiles.push(file);
-      } else if (isImage || isPDF) {
-        const newReceipt: Receipt = {
+      // Add valid files immediately
+      if (validFiles.length > 0) {
+        setReceipts(prev => [...prev, ...validFiles]);
+        if (!selectedReceiptId) {
+          setSelectedReceiptId(validFiles[0].id);
+        }
+      }
+
+      // Handle HEIC conversion
+      if (heicFiles.length > 0) {
+        const convertedFiles = await Promise.all((await convertHEIC(heicFiles)).map(shrinkImage));
+        const convertedReceipts: Receipt[] = convertedFiles.map(file => ({
           id: uuidv4().toString(),
           file: file,
-          previewUrl: isPDF ? '' : URL.createObjectURL(file),
-          isPdf: isPDF,
-        };
-        validFiles.push(newReceipt);
-      }
-    }
+          previewUrl: URL.createObjectURL(file),
+          isPdf: false,
+        }));
 
-    // Add valid files immediately
-    if (validFiles.length > 0) {
-      setReceipts(prev => [...prev, ...validFiles]);
-      if (!selectedReceiptId) {
-        setSelectedReceiptId(validFiles[0].id);
+        setReceipts(prev => [...prev, ...convertedReceipts]);
+        if (!selectedReceiptId && convertedReceipts.length > 0) {
+          setSelectedReceiptId(convertedReceipts[0].id);
+        }
       }
-    }
-
-    // Handle HEIC conversion
-    if (heicFiles.length > 0) {
-      setIsConverting(true);
-      const convertedFiles = await convertHEIC(heicFiles);
-      const convertedReceipts: Receipt[] = convertedFiles.map(file => ({
-        id: uuidv4().toString(),
-        file: file,
-        previewUrl: URL.createObjectURL(file),
-        isPdf: false,
-      }));
-
-      setReceipts(prev => [...prev, ...convertedReceipts]);
-      if (!selectedReceiptId && convertedReceipts.length > 0) {
-        setSelectedReceiptId(convertedReceipts[0].id);
-      }
+    } finally {
       setIsConverting(false);
     }
   };
@@ -259,7 +264,7 @@ const Hero: React.FC<HeroProps> = ({ onSubmit, receipts, setReceipts, isUploadin
                 </div>
                 <p className="text-gray-400">
                   {isConverting
-                    ? 'Converting HEIC files to JPG...'
+                    ? 'Preparing your receipts...'
                     : 'Click or drag and drop your receipts here'}
                 </p>
                 <p className="text-sm text-gray-400 mt-2">
