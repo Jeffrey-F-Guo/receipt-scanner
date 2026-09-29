@@ -124,21 +124,25 @@ describe('buildCsv', () => {
 });
 
 describe('buildTsv', () => {
-  it('writes the same table as the CSV, tab-separated for pasting into a spreadsheet', () => {
-    expect(buildTsv([traderJoes])).toBe(
-      'Merchant\tDate\tTotal\tItem\tPrice\n' +
-      "Trader Joe's\t12/20/2025\t23.47\tBANANAS\t0.95\n" +
-      'Trader Joe\'s\t12/20/2025\t23.47\tMILK, "2%"\t5.49',
+  it('writes summary rows once, then an Item/Price table, tab-separated for spreadsheets', () => {
+    expect(buildTsv(traderJoes)).toBe(
+      "Merchant\tTrader Joe's\n" +
+      'Date\t12/20/2025\n' +
+      'Total\t23.47\n' +
+      '\n' +
+      'Item\tPrice\n' +
+      'BANANAS\t0.95\n' +
+      'MILK, "2%"\t5.49',
     );
   });
 
-  it('replaces tabs and line breaks inside values so cells stay aligned', () => {
+  it('leaves missing values blank and replaces tabs and line breaks inside values', () => {
     const r: ExtractedData = {
-      fileId: 'e', merchant: 'Big\tStore', total: 2,
-      items: [{ name: 'LINE\r\nBREAK', price: 2 }],
+      fileId: 'e', merchant: 'Big\tStore', total: null,
+      items: [{ name: 'LINE\r\nBREAK', price: null }],
     };
-    expect(buildTsv([r])).toBe(
-      'Merchant\tDate\tTotal\tItem\tPrice\nBig Store\t\t2.00\tLINE BREAK\t2.00',
+    expect(buildTsv(r)).toBe(
+      'Merchant\tBig Store\nDate\t\nTotal\t\n\nItem\tPrice\nLINE BREAK\t',
     );
   });
 });

@@ -40,7 +40,7 @@ const ExportActions: React.FC<ExportActionsProps> = ({ data, selected, selectedI
   };
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(buildTsv([selected]));
+    navigator.clipboard.writeText(buildTsv(selected));
   };
 
   return (

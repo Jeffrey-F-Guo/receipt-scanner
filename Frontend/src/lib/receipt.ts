@@ -80,9 +80,20 @@ export function buildCsv(receipts: ExtractedData[]): string {
   return exportRows(receipts).map(row => row.map(csvField).join(',')).join('\n') + '\n';
 }
 
-// Tab-separated so pasting into Google Sheets or Excel fills cells.
-export function buildTsv(receipts: ExtractedData[]): string {
-  return exportRows(receipts)
-    .map(row => row.map(value => value.replace(/[\t\r\n]+/g, ' ')).join('\t'))
-    .join('\n');
+function tsvCell(value: string): string {
+  return value.replace(/[\t\r\n]+/g, ' ');
+}
+
+// Summary fields as label/value rows, then an Item/Price table. Tab-separated so
+// pasting into Google Sheets or Excel fills cells.
+export function buildTsv(r: ExtractedData): string {
+  const rows = [
+    ['Merchant', r.merchant ?? ''],
+    ['Date', r.date ?? ''],
+    ['Total', exportMoney(r.total)],
+    [],
+    ['Item', 'Price'],
+    ...r.items.map(item => [item.name, exportMoney(item.price)]),
+  ];
+  return rows.map(row => row.map(tsvCell).join('\t')).join('\n');
 }
